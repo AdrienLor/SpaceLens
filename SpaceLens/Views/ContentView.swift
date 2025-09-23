@@ -121,7 +121,7 @@ struct ContentView: View {
                         HStack {
                             Spacer()
                             Button("Charger plus…") {
-                                vm.displayLimit += 20
+                                vm.displayLimit += 25
                                 if let cachedNodes = vm.cache[currentFolder] {
                                     vm.nodes = Array(cachedNodes.prefix(vm.displayLimit))
                                 }
