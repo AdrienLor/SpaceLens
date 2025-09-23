@@ -78,7 +78,7 @@ struct ContentView: View {
                     Button {
                         vm.chooseFolder()
                     } label: {
-                        Label("Choisir dossier", systemImage: "folder")
+                        Label("Select folder", systemImage: "folder")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -100,7 +100,7 @@ struct ContentView: View {
                     }
                     .padding(.bottom, 4)
                 } else {
-                    Text("📦 \(vm.nodes.count) éléments")
+                    Text("📦 \(vm.nodes.count) items")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.bottom, 4)
@@ -120,7 +120,7 @@ struct ContentView: View {
                        vm.nodes.count < vm.cache[currentFolder]?.count ?? 0 {
                         HStack {
                             Spacer()
-                            Button("Charger plus…") {
+                            Button("Load more…") {
                                 vm.displayLimit += 25
                                 if let cachedNodes = vm.cache[currentFolder] {
                                     vm.nodes = Array(cachedNodes.prefix(vm.displayLimit))
@@ -151,7 +151,7 @@ struct ContentView: View {
                 .padding(.top, 4)
 
                 if vm.nodes.isEmpty {
-                    Text("📂 Dossier vide")
+                    Text("📂 empty folder")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
@@ -165,17 +165,17 @@ struct ContentView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.accentColor)
 
-                    Text("Bienvenue dans SpaceLens")
+                    Text("Welcome to SpaceLens")
                         .font(.title2)
                         .bold()
 
-                    Text("Analysez facilement l’espace disque de vos dossiers.\nSélectionnez un dossier ou glissez-en un ici.")
+                    Text("Easily analyze the disk space of your folders.\nSelect a folder or drag one here.")
                         .multilineTextAlignment(.center)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
 
                     Button(action: { vm.chooseFolder() }) {
-                        Label("Choisir un dossier…", systemImage: "folder")
+                        Label("Select folder…", systemImage: "folder")
                     }
                     .buttonStyle(.borderedProminent)
                     .padding(.top, 8)
@@ -185,7 +185,7 @@ struct ContentView: View {
                         .frame(width: 250, height: 100)
                         .foregroundColor(.secondary)
                         .overlay(
-                            Text("Glissez un dossier ici")
+                            Text("Drag a folder here")
                                 .foregroundColor(.secondary)
                         )
                         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
