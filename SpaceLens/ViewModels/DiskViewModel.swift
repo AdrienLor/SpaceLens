@@ -168,7 +168,7 @@ final class DiskViewModel: ObservableObject {
 
                     // Cache complet, tel quel (les onUpdate ont arrêté isLoading au fur et à mesure)
                     let all = map.values.map { node -> Node in
-                        var n = node
+                        let n = node
                         if n.isDir {
                             // keep n.isLoading as is; it will be updated properly by onUpdate
                         }
