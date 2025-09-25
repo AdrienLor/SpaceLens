@@ -8,7 +8,7 @@ struct NodeRowView: View {
     private let nameColumnMinWidth: CGFloat = 140
     private let nameColumnIdealWidth: CGFloat = 220
     private let nameColumnMaxWidth: CGFloat = 320
-    private let sizeColumnWidth: CGFloat = 120
+    private let sizeColumnWidth: CGFloat = 140
     private let barHeight: CGFloat = 14
 
     @AppStorage("heatmapStyle") private var heatmapStyleRaw: String = "cool"

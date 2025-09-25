@@ -4,6 +4,8 @@ internal import UniformTypeIdentifiers
 struct ContentView: View {
     @StateObject private var vm = DiskViewModel()
     @State private var transientError: String?
+    @State private var viewMode: String = "list"
+    @AppStorage("sunburstDepth") private var sunburstDepth: Int = 6
 
     @AppStorage("heatmapStyle") private var heatmapStyleRaw: String = "cool"
     private var heatmapStyle: HeatmapStyle {
@@ -46,43 +48,75 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             if let _ = vm.currentFolder {
-                // Barre du haut : breadcrumb + heatmap style + reset + choisir dossier
-                HStack(spacing: 8) {
-                    BreadcrumbView(breadcrumb: vm.breadcrumb) { url in
-                        vm.openFolder(url)
-                    }
+                // Barre du haut : options/actions + breadcrumb
+                VStack(spacing: 4) {
+                    // First row: options and actions
+                    HStack(spacing: 8) {
+                        Picker("", selection: $viewMode) {
+                            Text("List").tag("list")
+                            Text("Sunburst").tag("sunburst")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 150)
 
-                    Menu {
-                        Button("Cool (blue→purple)") { heatmapStyleRaw = "cool" }
-                        Button("Warm (green→red)") { heatmapStyleRaw = "warm" }
-                        Button("Aqua (cyan→blue)") { heatmapStyleRaw = "aqua" }
-                        Button("Viridis (scientific)") { heatmapStyleRaw = "viridis" }
-                        Button("Magma (scientific)") { heatmapStyleRaw = "magma" }
-                        Button("Cividis (scientific)") { heatmapStyleRaw = "cividis" }
-                    } label: {
-                        Label("Heatmap", systemImage: "paintpalette")
-                    }
-                    .buttonStyle(.borderless)
+                        Menu {
+                            Button("Cool (blue→purple)") { heatmapStyleRaw = "cool" }
+                            Button("Warm (green→red)") { heatmapStyleRaw = "warm" }
+                            Button("Aqua (cyan→blue)") { heatmapStyleRaw = "aqua" }
+                            Button("Viridis (scientific)") { heatmapStyleRaw = "viridis" }
+                            Button("Magma (scientific)") { heatmapStyleRaw = "magma" }
+                            Button("Cividis (scientific)") { heatmapStyleRaw = "cividis" }
+                        } label: {
+                            Label("Heatmap", systemImage: "paintpalette")
+                        }
+                        .buttonStyle(.borderless)
 
-                    Spacer()
+                        if viewMode == "sunburst" {
+                            Picker("", selection: $sunburstDepth) {
+                                ForEach(3..<9) { depth in
+                                    Text("\(depth)").tag(depth)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 220)
+                            .onChange(of: sunburstDepth) { _, newDepth in
+                                vm.scheduleSunburstRefresh(maxDepth: newDepth)
+                            }
+                        }
 
-                    Button {
-                        vm.resetToRoot()
-                    } label: {
-                        Label("Reset", systemImage: "arrow.counterclockwise")
-                    }
-                    .buttonStyle(.borderless)
+                        Spacer()
 
-                    Button {
-                        vm.chooseFolder()
-                    } label: {
-                        Label("Select folder", systemImage: "folder")
+                        Button {
+                            vm.resetToRoot()
+                        } label: {
+                            Label("Reset", systemImage: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(.borderless)
+
+                        Button {
+                            vm.chooseFolder()
+                        } label: {
+                            Label("Select folder", systemImage: "folder")
+                        }
+                        .buttonStyle(.borderless)
                     }
-                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        BreadcrumbView(breadcrumb: vm.breadcrumb) { url in
+                            vm.openFolder(url)
+                        }
+                        .padding(.leading, 0)
+                        .padding(.trailing, 8)
+                    }
+                    .frame(height: 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
                 }
-                .padding(.bottom, 4)
 
                 // Compteur / état de scan
                 if vm.isScanning {
@@ -99,38 +133,80 @@ struct ContentView: View {
                             .cornerRadius(6)
                     }
                     .padding(.bottom, 4)
-                } else {
-                    Text("📦 \(vm.nodes.count) items")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 4)
+                    .frame(height: 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                else {
+                    Text("")
+                        .frame(height: 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                // Liste principale
-                let maxSize = vm.nodes.map(\.size).max() ?? 1
-                List {
-                    ForEach(vm.nodes) { node in
-                        NodeRowView(node: node, maxSize: maxSize) { tapped in
-                            vm.openFolder(tapped.url)
+                // Liste principale or SunburstView
+                if viewMode == "list" {
+                    let maxSize = vm.nodes.map(\.size).max() ?? 1
+                    List {
+                        ForEach(vm.nodes) { node in
+                            NodeRowView(node: node, maxSize: maxSize) { tapped in
+                                vm.openFolder(tapped.url)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .listRowInsets(EdgeInsets())
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .listRowInsets(EdgeInsets())
-                    }
-                    if let currentFolder = vm.currentFolder,
-                       vm.nodes.count < vm.cache[currentFolder]?.count ?? 0 {
-                        HStack {
-                            Spacer()
-                            Button("Load more…") {
-                                vm.displayLimit += 25
-                                if let cachedNodes = vm.cache[currentFolder] {
-                                    vm.nodes = Array(cachedNodes.prefix(vm.displayLimit))
+                        if let currentFolder = vm.currentFolder,
+                           vm.nodes.count < vm.cache[currentFolder]?.count ?? 0 {
+                            HStack {
+                                Spacer()
+                                Button("Load up to 100 more…") {
+                                    vm.displayLimit += 100
+                                    if let cachedNodes = vm.cache[currentFolder] {
+                                        vm.nodes = Array(cachedNodes.prefix(vm.displayLimit))
+                                    }
                                 }
+                                Spacer()
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .padding(.bottom, 8)
+                } else {
+                    Group {
+                        if let root = vm.sunburstRoot {
+                            SunburstView(
+                                root: root,
+                                heatmapStyle: heatmapStyle,
+                                maxDepth: sunburstDepth,
+                                onTap: { tapped in
+                                    vm.openFolder(tapped.url)
+                                },
+                                isRefreshing: vm.isSunburstRefreshing
+                            )
+                            .onChange(of: sunburstDepth) { _, newDepth in
+                                vm.scheduleSunburstRefresh(maxDepth: newDepth)
+                            }
+                        } else {
+                            Spacer()
+                            VStack(spacing: 2) {
+                                ProgressView()
+                                Text("Building sunburst…")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .onAppear {
+                                vm.scheduleSunburstRefresh(maxDepth: 6)
                             }
                             Spacer()
                         }
                     }
+                    .onChange(of: vm.isScanning) { _, _ in
+                        vm.scheduleSunburstRefresh(maxDepth: sunburstDepth)
+                    }
+                    .onChange(of: vm.nodes.count) { _, _ in
+                        vm.scheduleSunburstRefresh(maxDepth: sunburstDepth)
+                    }
+                    .padding(.top, 8)
                 }
-                .listStyle(.plain)
 
                 // Légende heatmap
                 HStack(spacing: 0) {
@@ -159,7 +235,7 @@ struct ContentView: View {
 
             } else {
                 // Vue initiale
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     Spacer()
                     Image(systemName: "externaldrive.fill")
                         .font(.system(size: 48))
@@ -201,12 +277,13 @@ struct ContentView: View {
                             return true
                         }
                         .padding(.top, 12)
-
                     Spacer()
                 }
             }
         }
-        .padding()
+        .padding(.horizontal)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
         .onChange(of: vm.errorMessage) { oldValue, newValue in
             guard let msg = newValue else { return }
             transientError = msg

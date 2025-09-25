@@ -10,4 +10,6 @@ struct Node: Identifiable {
     var children: [Node] = []
     var accessDenied: Bool = false
     var isLoading: Bool = false
+    var isSunburstRefreshing: Bool = false
+    var isScanning: Bool = false
 }

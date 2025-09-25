@@ -11,10 +11,10 @@ final class DiskViewModel: ObservableObject {
     @Published var isScanning: Bool = false
     @Published var errorMessage: String?
     /// Nombre d’éléments affichés par défaut à l’ouverture d’un dossier
-    let baseDisplayLimit: Int = 25
+    let baseDisplayLimit: Int = 100
 
     /// Limite courante (peut être augmentée par “Charger plus”)
-    @Published var displayLimit: Int = 25
+    @Published var displayLimit: Int = 100
 
     /// Cache mémoire : dossier → enfants scannés (à jour)
     /// Contient TOUS les enfants, triés par taille décroissante
@@ -28,7 +28,11 @@ final class DiskViewModel: ObservableObject {
     
     /// dossier initialement choisi
     private(set) var rootFolder: URL?
+
+    @Published var sunburstRoot: Node?
+    @Published var isSunburstRefreshing: Bool = false
     
+    private var sunburstRefreshWork: DispatchWorkItem?
 
     func chooseFolder() {
             let panel = NSOpenPanel()
@@ -66,20 +70,21 @@ final class DiskViewModel: ObservableObject {
         breadcrumb = makeBreadcrumb(for: target)
         errorMessage = nil
 
-        // 1) Si le cache est disponible et non vide → affichage immédiat, pas de spinner
-        if let cached = cache[target], !cached.isEmpty {
-            // UI : top N (le cache garde tout)
+        // 1) Si le cache est disponible, non vide, et complet → affichage immédiat, pas de spinner
+        if let cached = cache[target], !cached.isEmpty,
+           cached.allSatisfy({ !$0.isLoading }) {
+            // Cache complet → affichage immédiat
             nodes = Array(cached.prefix(displayLimit))
             isScanning = false
             activeScanID = nil
-
-            // Recalcule ciblé éventuel (rare)
             refreshZeroSizedFoldersIfNeeded(in: target)
-
             if recordInHistory, viewStack.last != target {
                 viewStack.append(target)
             }
             return
+        } else {
+            // Cache absent ou incomplet → relancer un scan
+            cache[target] = []
         }
 
         // 2) Nouveau scan progressif
@@ -110,6 +115,7 @@ final class DiskViewModel: ObservableObject {
                         // UI : toujours top displayLimit par taille
                         let sorted = map.values.sorted { $0.size > $1.size }
                         self.nodes = Array(sorted.prefix(self.displayLimit))
+                        self.scheduleSunburstRefresh(maxDepth: 3)
                     }
                 },
                 onUpdate: { updated in
@@ -135,6 +141,7 @@ final class DiskViewModel: ObservableObject {
                         // 🔽 MAJ UI
                         let sorted = map.values.sorted { $0.size > $1.size }
                         self.nodes = Array(sorted.prefix(self.displayLimit))
+                        self.scheduleSunburstRefresh(maxDepth: 3)
 
                         if enumerationFinished && pendingLoads.isEmpty {
                             self.isScanning = false
@@ -150,7 +157,7 @@ final class DiskViewModel: ObservableObject {
 
                 if map.isEmpty {
                     // ⚠️ Échec : rien n’a pu être lu → accès refusé
-                    self.errorMessage = "⚠️ Accès refusé à ce dossier"
+                    self.errorMessage = "⚠️ Access Denied"
 
                     // Retour automatique à la dernière vue valide
                     if let previous = self.viewStack.last {
@@ -178,6 +185,7 @@ final class DiskViewModel: ObservableObject {
 
                     // UI : top N
                     self.nodes = Array(all.prefix(self.displayLimit))
+                    self.scheduleSunburstRefresh(maxDepth: 3)
 
                     // 🔽 Spinner global : on ne l’éteint que si plus rien en attente
                     if pendingLoads.isEmpty {
@@ -193,6 +201,37 @@ final class DiskViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Charger une hiérarchie complète pour Sunburst (3 niveaux max par défaut)
+    func loadHierarchyForSunburst(maxDepth: Int = 3) {
+        isSunburstRefreshing = true
+        guard let url = currentFolder else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let rootNode = DiskScanner.scanFolderHierarchy(at: url, maxDepth: maxDepth)
+            DispatchQueue.main.async {
+                self.sunburstRoot = rootNode
+                self.isSunburstRefreshing = false
+            }
+        }
+    }
+    
+    func scheduleSunburstRefresh(maxDepth: Int = 3) {
+        guard let url = currentFolder else { return }
+        isSunburstRefreshing = true
+        sunburstRefreshWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            let rootNode = DiskScanner.scanFolderHierarchy(at: url, maxDepth: maxDepth)
+            DispatchQueue.main.async {
+                if self.currentFolder == url {
+                    self.sunburstRoot = rootNode
+                    self.isSunburstRefreshing = false
+                }
+            }
+        }
+        sunburstRefreshWork = work
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     /// Revenir au DERNIER affichage valide (pas au parent !)
@@ -283,3 +322,27 @@ final class DiskViewModel: ObservableObject {
         return total
     }
 }
+
+extension DiskViewModel {
+    var currentFolderNode: Node? {
+        guard let url = currentFolder else { return nil }
+        let children = cache[url] ?? nodes
+        let total: Int64
+        if isScanning || isSunburstRefreshing {
+            total = computeFolderSize(at: url)
+        } else {
+            total = children.map(\.size).reduce(0, +)
+        }
+        let denied = children.allSatisfy { $0.accessDenied } && !children.isEmpty
+        return Node(
+            url: url,
+            name: url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent,
+            size: total,
+            isDir: true,
+            children: children,
+            accessDenied: denied
+        )
+    }
+}
+
+

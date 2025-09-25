@@ -23,7 +23,8 @@ struct BreadcrumbView: View {
                 }
             }
         }
-        .frame(height: 24)
+        .frame(height: 20)
+        .padding(.vertical, 0)
     }
 
     private func displayName(for url: URL) -> String {
