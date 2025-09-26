@@ -7,6 +7,7 @@ enum HeatmapStyle: String {
     case viridis
     case magma
     case cividis
+    case fileType
 }
 
 // MARK: - Color interpolation helper
@@ -53,6 +54,29 @@ private let cividisStops: [(Double, Color)] = [
     (0.5, Color(red: 0.391, green: 0.414, blue: 0.566)),
     (0.75, Color(red: 0.627, green: 0.540, blue: 0.544)),
     (1.0, Color(red: 0.902, green: 0.960, blue: 0.596))
+]
+
+private let fileTypeColors: [String: Color] = [
+    // Images
+    "jpg": Color(red: 0.0, green: 0.7, blue: 0.8), "jpeg": Color(red: 0.0, green: 0.7, blue: 0.8), "png": Color(red: 0.0, green: 0.7, blue: 0.8), "gif": Color(red: 0.0, green: 0.7, blue: 0.8), "tif": Color(red: 0.0, green: 0.7, blue: 0.8), "tiff": Color(red: 0.0, green: 0.7, blue: 0.8), "heic": Color(red: 0.0, green: 0.7, blue: 0.8), "webp": Color(red: 0.0, green: 0.7, blue: 0.8), "bmp": Color(red: 0.0, green: 0.7, blue: 0.8), "raw": Color(red: 0.0, green: 0.7, blue: 0.8), "cr2": Color(red: 0.0, green: 0.7, blue: 0.8), "nef": Color(red: 0.0, green: 0.7, blue: 0.8), "arw": Color(red: 0.0, green: 0.7, blue: 0.8), "dng": Color(red: 0.0, green: 0.7, blue: 0.8), "svg": Color(red: 0.0, green: 0.7, blue: 0.8),
+    // Video
+    "mp4": Color(red: 0.6, green: 0.2, blue: 0.7), "mov": Color(red: 0.6, green: 0.2, blue: 0.7), "avi": Color(red: 0.6, green: 0.2, blue: 0.7), "mkv": Color(red: 0.6, green: 0.2, blue: 0.7), "m4v": Color(red: 0.6, green: 0.2, blue: 0.7), "wmv": Color(red: 0.6, green: 0.2, blue: 0.7), "flv": Color(red: 0.6, green: 0.2, blue: 0.7),
+    // Audio
+    "mp3": Color.orange.opacity(0.9), "wav": Color.orange.opacity(0.9), "flac": Color.orange.opacity(0.9), "aiff": Color.orange.opacity(0.9), "aac": Color.orange.opacity(0.9), "m4a": Color.orange.opacity(0.9), "ogg": Color.orange.opacity(0.9),
+    // Documents
+    "pdf": Color(red: 0.89, green: 0.0, blue: 0.0), "txt": .green, "rtf": .green, "md": .green, "doc": .green, "docx": .green, "pages": .green,
+    // Spreadsheets / presentations
+    "xls": .mint, "xlsx": .mint, "numbers": .mint, "ppt": Color(red: 0.86, green: 0.35, blue: 0.01), "pptx": Color(red: 0.86, green: 0.35, blue: 0.01), "key": .pink,
+    // Archives
+    "zip": .brown, "rar": .brown, "7z": .brown, "gz": .brown, "bz2": .brown, "xz": .brown, "tar": .brown,
+    // Code / dev
+    "swift": Color(red: 0.0, green: 0.6, blue: 1.0), "rs": Color(red: 0.0, green: 0.6, blue: 1.0), "py": Color(red: 0.0, green: 0.6, blue: 1.0), "js": Color(red: 0.0, green: 0.6, blue: 1.0), "ts": Color(red: 0.0, green: 0.6, blue: 1.0), "java": Color(red: 0.0, green: 0.6, blue: 1.0), "kt": Color(red: 0.0, green: 0.6, blue: 1.0), "c": Color(red: 0.0, green: 0.6, blue: 1.0), "h": Color(red: 0.0, green: 0.6, blue: 1.0), "cpp": Color(red: 0.0, green: 0.6, blue: 1.0), "hpp": Color(red: 0.0, green: 0.6, blue: 1.0), "m": Color(red: 0.0, green: 0.6, blue: 1.0), "mm": Color(red: 0.0, green: 0.6, blue: 1.0), "sh": Color(red: 0.0, green: 0.6, blue: 1.0), "lua": Color(red: 0.0, green: 0.6, blue: 1.0), "go": Color(red: 0.0, green: 0.6, blue: 1.0), "rb": Color(red: 0.0, green: 0.6, blue: 1.0), "php": Color(red: 0.0, green: 0.6, blue: 1.0), "sql": Color(red: 0.0, green: 0.6, blue: 1.0), "ipynb": Color(red: 0.0, green: 0.6, blue: 1.0),
+    // Data / config
+    "json": Color.yellow.opacity(0.8), "xml": Color.yellow.opacity(0.8), "yaml": Color.yellow.opacity(0.8), "yml": Color.yellow.opacity(0.8), "plist": Color.yellow.opacity(0.8), "csv": Color.yellow.opacity(0.8), "parquet": Color.yellow.opacity(0.8),
+    // Disk images / installers / packages
+    "dmg": .gray, "iso": .gray, "pkg": .gray, "app": .gray,
+    // Folder
+    "__folder__": .blue.opacity(0.6) // Special color for directories
 ]
 
 // MARK: - Interpolation
@@ -113,6 +137,21 @@ extension HeatmapStyle {
             return interpolateColor(stops: magmaStops, fraction: clamped)
         case .cividis:
             return interpolateColor(stops: cividisStops, fraction: clamped)
+        case .fileType:
+            return .gray.opacity(0.6)
+        }
+    }
+    
+    func color(for node: Node, fraction: Double) -> Color {
+        switch self {
+        case .fileType:
+            if node.url.hasDirectoryPath {
+                return .blue.opacity(0.6)
+            }
+            let ext = node.url.pathExtension.lowercased()
+            return fileTypeColors[ext] ?? .indigo.opacity(0.7)
+        default:
+            return color(for: fraction)
         }
     }
 }

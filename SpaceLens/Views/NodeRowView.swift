@@ -61,7 +61,7 @@ struct NodeRowView: View {
                     let fraction = max(0, min(1, maxSize > 0 ? Double(node.size) / Double(maxSize) : 0))
                     let width = max(fraction > 0 ? 2 : 0, geo.size.width * fraction)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(heatmapStyle.color(for: fraction))
+                        .fill(heatmapStyle.color(for: node, fraction: fraction))
                         .frame(width: width, height: barHeight)
                 }
             }

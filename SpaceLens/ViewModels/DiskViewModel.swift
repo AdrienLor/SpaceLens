@@ -31,6 +31,7 @@ final class DiskViewModel: ObservableObject {
 
     @Published var sunburstRoot: Node?
     @Published var isSunburstRefreshing: Bool = false
+    @Published var heatmapStyle: HeatmapStyle = .cool
     
     private var sunburstRefreshWork: DispatchWorkItem?
 

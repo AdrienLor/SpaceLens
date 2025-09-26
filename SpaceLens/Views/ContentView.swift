@@ -44,6 +44,8 @@ struct ContentView: View {
                 Color(red: 0.627, green: 0.540, blue: 0.544),
                 Color(red: 0.902, green: 0.960, blue: 0.596)
             ])
+        case .fileType:
+            return Gradient(colors: [.gray.opacity(0.5), .gray.opacity(0.8)])
         }
     }
 
@@ -68,36 +70,46 @@ struct ContentView: View {
                             Button("Viridis (scientific)") { heatmapStyleRaw = "viridis" }
                             Button("Magma (scientific)") { heatmapStyleRaw = "magma" }
                             Button("Cividis (scientific)") { heatmapStyleRaw = "cividis" }
+                            Button("File type (by extension)") { heatmapStyleRaw = "fileType" }
                         } label: {
-                            Label("Heatmap", systemImage: "paintpalette")
+                            Label("\(heatmapStyle.displayName)", systemImage: "paintpalette")
                         }
                         .buttonStyle(.borderless)
 
                         if viewMode == "sunburst" {
-                            Picker("", selection: $sunburstDepth) {
-                                ForEach(3..<9) { depth in
-                                    Text("\(depth)").tag(depth)
+                            HStack(spacing: 4) {
+                                Text("Depth:")
+                                    .font(.caption)
+                                    .frame(minWidth: 50, alignment: .trailing)
+                                Picker("", selection: $sunburstDepth) {
+                                    ForEach(3..<9) { depth in
+                                        Text("\(depth)").tag(depth)
+                                    }
                                 }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 220)
-                            .onChange(of: sunburstDepth) { _, newDepth in
-                                vm.scheduleSunburstRefresh(maxDepth: newDepth)
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+                                .frame(width: 200)
+                                .onChange(of: sunburstDepth) { _, newDepth in
+                                    vm.scheduleSunburstRefresh(maxDepth: newDepth)
+                                }
                             }
                         }
 
                         Spacer()
 
                         Button {
-                            vm.resetToRoot()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                vm.resetToRoot()
+                            }
                         } label: {
                             Label("Reset", systemImage: "arrow.counterclockwise")
                         }
                         .buttonStyle(.borderless)
 
                         Button {
-                            vm.chooseFolder()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                vm.chooseFolder()
+                            }
                         } label: {
                             Label("Select folder", systemImage: "folder")
                         }
@@ -107,7 +119,9 @@ struct ContentView: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         BreadcrumbView(breadcrumb: vm.breadcrumb) { url in
-                            vm.openFolder(url)
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                vm.openFolder(url)
+                            }
                         }
                         .padding(.leading, 0)
                         .padding(.trailing, 8)
@@ -148,7 +162,9 @@ struct ContentView: View {
                     List {
                         ForEach(vm.nodes) { node in
                             NodeRowView(node: node, maxSize: maxSize) { tapped in
-                                vm.openFolder(tapped.url)
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    vm.openFolder(tapped.url)
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .listRowInsets(EdgeInsets())
@@ -177,7 +193,9 @@ struct ContentView: View {
                                 heatmapStyle: heatmapStyle,
                                 maxDepth: sunburstDepth,
                                 onTap: { tapped in
-                                    vm.openFolder(tapped.url)
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        vm.openFolder(tapped.url)
+                                    }
                                 },
                                 isRefreshing: vm.isSunburstRefreshing
                             )
@@ -194,7 +212,7 @@ struct ContentView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
                             .onAppear {
-                                vm.scheduleSunburstRefresh(maxDepth: 6)
+                                vm.scheduleSunburstRefresh(maxDepth: sunburstDepth)
                             }
                             Spacer()
                         }
@@ -209,29 +227,74 @@ struct ContentView: View {
                 }
 
                 // Légende heatmap
-                HStack(spacing: 0) {
-                    LinearGradient(
-                        gradient: gradientForStyle(heatmapStyle),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(height: 12)
-                    .cornerRadius(4)
+                if heatmapStyle == .fileType {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .firstTextBaseline, spacing: 20) {
+                            // Group 1: Media
+                            HStack(spacing: 12) {
+                                HStack(spacing: 6) { Circle().fill(Color.blue.opacity(0.6)).frame(width: 10, height: 10); Text("Folders") }
+                                HStack(spacing: 6) { Circle().fill(Color(red: 0.0, green: 0.7, blue: 0.8)).frame(width: 10, height: 10); Text("Images") }
+                                HStack(spacing: 6) { Circle().fill(Color(red: 0.6, green: 0.2, blue: 0.7)).frame(width: 10, height: 10); Text("Videos") }
+                                HStack(spacing: 6) { Circle().fill(Color.orange.opacity(0.9)).frame(width: 10, height: 10); Text("Audio") }
+                            }
 
-                    Text(" ← smaller  |  larger → ")
+                            Rectangle().fill(Color.secondary.opacity(0.3)).frame(width: 1, height: 12)
+
+                            // Group 2: Documents
+                            HStack(spacing: 12) {
+                                HStack(spacing: 6) { Circle().fill(Color.green).frame(width: 10, height: 10); Text("Docs") }
+                                HStack(spacing: 6) { Circle().fill(Color(red: 0.89, green: 0.0, blue: 0.0)).frame(width: 10, height: 10); Text("PDF") }
+                                HStack(spacing: 6) { Circle().fill(Color.mint).frame(width: 10, height: 10); Text("Spreadsheets") }
+                                HStack(spacing: 6) { Circle().fill(Color(red: 0.86, green: 0.35, blue: 0.01)).frame(width: 10, height: 10); Text("Presentations") }
+                                HStack(spacing: 6) { Circle().fill(Color.brown).frame(width: 10, height: 10); Text("Archives") }
+                            }
+
+                            Rectangle().fill(Color.secondary.opacity(0.3)).frame(width: 1, height: 12)
+
+                            // Group 3: Development
+                            HStack(spacing: 12) {
+                                HStack(spacing: 6) { Circle().fill(Color(red: 0.0, green: 0.6, blue: 1.0)).frame(width: 10, height: 10); Text("Code") }
+                                HStack(spacing: 6) { Circle().fill(Color.yellow.opacity(0.8)).frame(width: 10, height: 10); Text("Data") }
+                            }
+
+                            Rectangle().fill(Color.secondary.opacity(0.3)).frame(width: 1, height: 12)
+
+                            // Group 4: System
+                            HStack(spacing: 12) {
+                                HStack(spacing: 6) { Circle().fill(Color.gray).frame(width: 10, height: 10); Text("Disk") }
+                                HStack(spacing: 6) { Circle().fill(Color.indigo.opacity(0.7)).frame(width: 10, height: 10); Text("Other") }
+                            }
+                        }
                         .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 8)
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                    }
+                } else {
+                    HStack(spacing: 0) {
+                        LinearGradient(
+                            gradient: gradientForStyle(heatmapStyle),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(height: 12)
+                        .cornerRadius(4)
+                        
+                        Text(" ← smaller  |  larger → ")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 8)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
                 }
-                .padding(.horizontal)
-                .padding(.top, 4)
-
+                
                 if vm.nodes.isEmpty {
                     Text("📂 empty folder")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
                 }
+                    
 
             } else {
                 // Vue initiale
@@ -312,5 +375,35 @@ struct ContentView: View {
                 }
             }
         )
+ 
+    }
+}
+
+
+extension HeatmapStyle {
+    var displayName: String {
+        switch self {
+        case .cool: return "Cool (blue→purple)"
+        case .warm: return "Warm (green→red)"
+        case .aqua: return "Aqua (cyan→blue)"
+        case .viridis: return "Viridis"
+        case .magma: return "Magma"
+        case .cividis: return "Cividis"
+        case .fileType: return "By file type"
+        }
+    }
+}
+
+import AppKit
+
+struct WindowMinSizeEnforcer: NSViewRepresentable {
+    let minSize: NSSize
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async { v.window?.minSize = minSize }
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { nsView.window?.minSize = minSize }
     }
 }
