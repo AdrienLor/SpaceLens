@@ -116,7 +116,7 @@ final class DiskViewModel: ObservableObject {
                         // UI : toujours top displayLimit par taille
                         let sorted = map.values.sorted { $0.size > $1.size }
                         self.nodes = Array(sorted.prefix(self.displayLimit))
-                        self.scheduleSunburstRefresh(maxDepth: 3)
+                        self.scheduleSunburstRefresh(maxDepth: 4)
                     }
                 },
                 onUpdate: { updated in

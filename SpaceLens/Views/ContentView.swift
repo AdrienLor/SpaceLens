@@ -5,9 +5,9 @@ struct ContentView: View {
     @StateObject private var vm = DiskViewModel()
     @State private var transientError: String?
     @State private var viewMode: String = "list"
-    @AppStorage("sunburstDepth") private var sunburstDepth: Int = 6
+    @AppStorage("sunburstDepth") private var sunburstDepth: Int = 4
 
-    @AppStorage("heatmapStyle") private var heatmapStyleRaw: String = "cool"
+    @AppStorage("heatmapStyle") private var heatmapStyleRaw: String = "fileType"
     private var heatmapStyle: HeatmapStyle {
         HeatmapStyle(rawValue: heatmapStyleRaw) ?? .warm
     }
@@ -55,32 +55,33 @@ struct ContentView: View {
                 // Barre du haut : options/actions + breadcrumb
                 VStack(spacing: 4) {
                     // First row: options and actions
-                    HStack(spacing: 8) {
+                    HStack(spacing: 4) {
                         Picker("", selection: $viewMode) {
                             Text("List").tag("list")
                             Text("Sunburst").tag("sunburst")
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 150)
 
                         Menu {
+                            Button("File type (by extension)") { heatmapStyleRaw = "fileType" }
                             Button("Cool (blue→purple)") { heatmapStyleRaw = "cool" }
                             Button("Warm (green→red)") { heatmapStyleRaw = "warm" }
                             Button("Aqua (cyan→blue)") { heatmapStyleRaw = "aqua" }
                             Button("Viridis (scientific)") { heatmapStyleRaw = "viridis" }
                             Button("Magma (scientific)") { heatmapStyleRaw = "magma" }
                             Button("Cividis (scientific)") { heatmapStyleRaw = "cividis" }
-                            Button("File type (by extension)") { heatmapStyleRaw = "fileType" }
                         } label: {
                             Label("\(heatmapStyle.displayName)", systemImage: "paintpalette")
                         }
                         .buttonStyle(.borderless)
+                        .frame(minWidth: 160)
 
                         if viewMode == "sunburst" {
                             HStack(spacing: 4) {
+                                Rectangle().fill(Color.secondary.opacity(0.3)).frame(width: 1, height: 12)
                                 Text("Depth:")
                                     .font(.caption)
-                                    .frame(minWidth: 50, alignment: .trailing)
+                                    .frame(minWidth: 38, alignment: .trailing)
                                 Picker("", selection: $sunburstDepth) {
                                     ForEach(3..<9) { depth in
                                         Text("\(depth)").tag(depth)
@@ -88,7 +89,6 @@ struct ContentView: View {
                                 }
                                 .pickerStyle(.segmented)
                                 .labelsHidden()
-                                .frame(width: 200)
                                 .onChange(of: sunburstDepth) { _, newDepth in
                                     vm.scheduleSunburstRefresh(maxDepth: newDepth)
                                 }
@@ -105,6 +105,7 @@ struct ContentView: View {
                             Label("Reset", systemImage: "arrow.counterclockwise")
                         }
                         .buttonStyle(.borderless)
+                        .frame(minWidth: 60)
 
                         Button {
                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -114,6 +115,7 @@ struct ContentView: View {
                             Label("Select folder", systemImage: "folder")
                         }
                         .buttonStyle(.borderless)
+                        .frame(minWidth: 100)
                     }
                     .controlSize(.small)
 
@@ -123,10 +125,9 @@ struct ContentView: View {
                                 vm.openFolder(url)
                             }
                         }
-                        .padding(.leading, 0)
+                        .padding(.leading, 8)
                         .padding(.trailing, 8)
                     }
-                    .frame(height: 24)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 4)
                     .padding(.bottom, 4)
@@ -136,7 +137,7 @@ struct ContentView: View {
                 if vm.isScanning {
                     HStack(spacing: 8) {
                         ProgressView()
-                            .scaleEffect(0.8)
+                            .scaleEffect(0.6)
                             .controlSize(.regular)
                         Text("Scan")
                             .font(.caption2)
@@ -147,12 +148,12 @@ struct ContentView: View {
                             .cornerRadius(6)
                     }
                     .padding(.bottom, 4)
-                    .frame(height: 24)
+                    .frame(height: 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 else {
                     Text("")
-                        .frame(height: 24)
+                        .frame(height: 12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -225,6 +226,10 @@ struct ContentView: View {
                     }
                     .padding(.top, 8)
                 }
+                
+                Text("")
+                    .frame(height: 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Légende heatmap
                 if heatmapStyle == .fileType {
@@ -347,6 +352,7 @@ struct ContentView: View {
         .padding(.horizontal)
         .padding(.top, 6)
         .padding(.bottom, 6)
+        .frame(minWidth: 960, minHeight: 400)
         .onChange(of: vm.errorMessage) { oldValue, newValue in
             guard let msg = newValue else { return }
             transientError = msg
