@@ -25,7 +25,7 @@ struct SpaceLensApp: App {
     static func showCustomAboutPanel() {
             let alert = NSAlert()
             alert.messageText = "SpaceLens"
-            alert.informativeText = "Version 1.1 (Build 2)\n© 2025 Adrien Lorette\nhttps://github.com/AdrienLor"
+            alert.informativeText = "Version 1.2 (Build 3)\n© 2025 Adrien Lorette\nhttps://github.com/AdrienLor"
             alert.icon = NSApp.applicationIconImage
             alert.addButton(withTitle: "OK")
             alert.runModal()

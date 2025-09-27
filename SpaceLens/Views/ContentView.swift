@@ -1,5 +1,26 @@
 import SwiftUI
 internal import UniformTypeIdentifiers
+import AppKit
+
+/// Vérifie si l'app dispose de l'accès complet au disque en testant plusieurs chemins protégés.
+func hasFullDiskAccess() -> Bool {
+    let fm = FileManager.default
+
+    let testPaths = [
+        "/Library/Application Support/com.apple.TCC",
+        "/Library/Preferences/com.apple.TimeMachine.plist",
+        NSHomeDirectory() + "/Library/Mail"
+    ]
+
+    for path in testPaths {
+        let exists = fm.fileExists(atPath: path)
+        let readable = fm.isReadableFile(atPath: path)
+        if exists && readable {
+            return true
+        }
+    }
+    return false
+}
 
 struct ContentView: View {
     @StateObject private var vm = DiskViewModel()
@@ -11,6 +32,7 @@ struct ContentView: View {
     private var heatmapStyle: HeatmapStyle {
         HeatmapStyle(rawValue: heatmapStyleRaw) ?? .warm
     }
+    @State private var showFullDiskAccessAlert = false
 
     private func gradientForStyle(_ style: HeatmapStyle) -> Gradient {
         switch style {
@@ -110,6 +132,9 @@ struct ContentView: View {
                         Button {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 vm.chooseFolder()
+                                if let folder = vm.currentFolder, folder.path == "/" && !hasFullDiskAccess() {
+                                    showFullDiskAccessAlert = true
+                                }
                             }
                         } label: {
                             Label("Select folder", systemImage: "folder")
@@ -123,6 +148,9 @@ struct ContentView: View {
                         BreadcrumbView(breadcrumb: vm.breadcrumb) { url in
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 vm.openFolder(url)
+                                if url.path == "/" && !hasFullDiskAccess() {
+                                    showFullDiskAccessAlert = true
+                                }
                             }
                         }
                         .padding(.leading, 8)
@@ -165,6 +193,9 @@ struct ContentView: View {
                             NodeRowView(node: node, maxSize: maxSize) { tapped in
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     vm.openFolder(tapped.url)
+                                    if tapped.url.path == "/" && !hasFullDiskAccess() {
+                                        showFullDiskAccessAlert = true
+                                    }
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -195,7 +226,10 @@ struct ContentView: View {
                                 maxDepth: sunburstDepth,
                                 onTap: { tapped in
                                     withAnimation(.easeInOut(duration: 0.3)) {
-                                        vm.openFolder(tapped.url)
+                                vm.openFolder(tapped.url)
+                                if tapped.url.path == "/" && !hasFullDiskAccess() {
+                                    showFullDiskAccessAlert = true
+                                }
                                     }
                                 },
                                 isRefreshing: vm.isSunburstRefreshing
@@ -338,6 +372,9 @@ struct ContentView: View {
                                     if let url = object, url.hasDirectoryPath {
                                         DispatchQueue.main.async {
                                             vm.openFolder(url)
+                                            if url.path == "/" && !hasFullDiskAccess() {
+                                                showFullDiskAccessAlert = true
+                                            }
                                         }
                                     }
                                 }
@@ -353,6 +390,13 @@ struct ContentView: View {
         .padding(.top, 6)
         .padding(.bottom, 6)
         .frame(minWidth: 960, minHeight: 400)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if !hasFullDiskAccess() {
+                    showFullDiskAccessAlert = true
+                }
+            }
+        }
         .onChange(of: vm.errorMessage) { oldValue, newValue in
             guard let msg = newValue else { return }
             transientError = msg
@@ -381,7 +425,17 @@ struct ContentView: View {
                 }
             }
         )
- 
+        .alert("Full Disk Access Required", isPresented: $showFullDiskAccessAlert) {
+            Button("Open Settings") {
+                openFullDiskAccessPreferences()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("""
+            To scan your entire disk, macOS requires you to grant SpaceLens Full Disk Access in System Settings.
+            Click “Open Settings” to open the correct page, then add SpaceLens to the list and restart the app.
+            """)
+        }
     }
 }
 

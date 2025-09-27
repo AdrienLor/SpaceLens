@@ -35,10 +35,10 @@ struct DiskScanner {
                 node.isLoading = true
             }
 
-            // Publier immédiatement (fichier avec sa vraie taille, dossier avec 0 = "en cours")
+            // ✅ Publier immédiatement (fichier avec sa vraie taille, dossier avec 0 = "en cours")
             onNode(node)
 
-            // Si c’est un dossier → calculer sa vraie taille en arrière-plan
+            // ✅ Si c’est un dossier → calculer sa vraie taille en arrière-plan
             if isDir.boolValue {
                 // Removed initial onUpdate(node) in loading state, as onNode already does this.
 
