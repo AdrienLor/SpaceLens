@@ -18,7 +18,7 @@ It provides a clear interactive sunburst diagram and a structured list to explor
 
 - **Customizable heatmaps**  
   Two modes:
-  - By size (default)
+  - By size
   - By file type (color-coded: PDF, media, code, archives, etc.)
 
 - **Breadcrumb navigation**  
