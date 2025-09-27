@@ -17,3 +17,10 @@ It allows you to explore a selected folder and quickly identify which files and 
 - SwiftUI
 - Combine
 - AppKit (for some macOS-specific components)
+
+## Full Disk Access
+SpaceLens requires “Full Disk Access” to scan your entire disk.
+	1.	Open System Settings → Privacy & Security → Full Disk Access.
+	2.	Add SpaceLens to the list and enable the switch.
+	3.	Restart SpaceLens.
+Without this, macOS restricts access to protected folders (e.g. System, Library, Mail).
