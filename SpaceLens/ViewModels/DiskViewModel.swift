@@ -31,7 +31,7 @@ final class DiskViewModel: ObservableObject {
 
     @Published var sunburstRoot: Node?
     @Published var isSunburstRefreshing: Bool = false
-    @Published var heatmapStyle: HeatmapStyle = .cool
+    @Published var heatmapStyle: HeatmapStyle = .fileType
     
     private var sunburstRefreshWork: DispatchWorkItem?
 
@@ -41,7 +41,7 @@ final class DiskViewModel: ObservableObject {
             panel.canChooseFiles = false
             panel.allowsMultipleSelection = false
             if panel.runModal() == .OK, let url = panel.url {
-                rootFolder = url          // 🔥 on garde la racine
+                rootFolder = url          // on garde la racine
                 viewStack.removeAll()
                 openFolder(url, recordInHistory: true)
             }
@@ -158,7 +158,7 @@ final class DiskViewModel: ObservableObject {
 
                 if map.isEmpty {
                     // ⚠️ Échec : rien n’a pu être lu → accès refusé
-                    self.errorMessage = "⚠️ Access Denied"
+                    self.errorMessage = "⚠️ Denied or Empty"
 
                     // Retour automatique à la dernière vue valide
                     if let previous = self.viewStack.last {

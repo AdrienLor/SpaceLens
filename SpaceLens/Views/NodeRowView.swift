@@ -42,7 +42,7 @@ struct NodeRowView: View {
             // Colonne 2 : Taille / état
             Group {
                 if node.accessDenied {
-                    Text("⚠️ Access denied")
+                    Text("Denied or Empty")
                         .foregroundColor(.red)
                         .frame(width: sizeColumnWidth, alignment: .trailing)
                 } else if node.isLoading {
