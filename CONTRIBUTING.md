@@ -8,6 +8,18 @@
 - Add or update characterization tests before replacing legacy behavior.
 - Record user-visible changes in `CHANGELOG.md`.
 
+## Running tests
+
+Run the headless Domain and Scanning test suite with:
+
+```bash
+./scripts/test.sh
+```
+
+This path is suitable for local automation and CI because it does not require
+the Xcode test runner. The shared Xcode scheme remains the reference for the
+full application build and integration tests.
+
 ## Commit style
 
 Use short imperative commit subjects, for example:

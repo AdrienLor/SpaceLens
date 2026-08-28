@@ -19,6 +19,9 @@
 		A1000000000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* Assets.xcassets */; };
 		A1000000000000000000000C /* DiskScannerCharacterizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* DiskScannerCharacterizationTests.swift */; };
 		A1000000000000000000000D /* SpaceLens.app in Frameworks */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* SpaceLens.app */; settings = {ATTRIBUTES = (TestTargetID, ); }; };
+		A1000000000000000000000E /* ScanTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* ScanTypes.swift */; };
+		A1000000000000000000000F /* DiskScanning.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* DiskScanning.swift */; };
+		A10000000000000000000010 /* ScanContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* ScanContractTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,6 +50,9 @@
 		B1000000000000000000000D /* DiskScannerCharacterizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScannerCharacterizationTests.swift; sourceTree = "<group>"; };
 		B1000000000000000000000E /* SpaceLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpaceLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000000000000000000000F /* SpaceLensTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpaceLensTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000010 /* ScanTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypes.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* DiskScanning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskScanning.swift; sourceTree = "<group>"; };
+		B10000000000000000000012 /* ScanContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanContractTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,14 +64,14 @@
 		D10000000000000000000002 = {isa = PBXGroup; children = (D10000000000000000000003 /* SpaceLens */, D1000000000000000000000D /* SpaceLensTests */, D1000000000000000000000E /* Products */, ); sourceTree = "<group>"; };
 		D10000000000000000000003 /* SpaceLens */ = {isa = PBXGroup; children = (D10000000000000000000004 /* App */, D10000000000000000000005 /* Domain */, D10000000000000000000006 /* Scanning */, D10000000000000000000007 /* Features */, D1000000000000000000000B /* Shared */, D1000000000000000000000C /* Resources */, ); path = SpaceLens; sourceTree = "<group>"; };
 		D10000000000000000000004 /* App */ = {isa = PBXGroup; children = (B10000000000000000000001 /* SpaceLensApp.swift */, ); path = App; sourceTree = "<group>"; };
-		D10000000000000000000005 /* Domain */ = {isa = PBXGroup; children = (B10000000000000000000002 /* HeatmapStyle.swift */, B10000000000000000000003 /* Node.swift */, ); path = Domain; sourceTree = "<group>"; };
-		D10000000000000000000006 /* Scanning */ = {isa = PBXGroup; children = (B10000000000000000000004 /* DiskScanner.swift */, ); path = Scanning; sourceTree = "<group>"; };
+		D10000000000000000000005 /* Domain */ = {isa = PBXGroup; children = (B10000000000000000000002 /* HeatmapStyle.swift */, B10000000000000000000003 /* Node.swift */, B10000000000000000000010 /* ScanTypes.swift */, ); path = Domain; sourceTree = "<group>"; };
+		D10000000000000000000006 /* Scanning */ = {isa = PBXGroup; children = (B10000000000000000000004 /* DiskScanner.swift */, B10000000000000000000011 /* DiskScanning.swift */, ); path = Scanning; sourceTree = "<group>"; };
 		D10000000000000000000007 /* Features */ = {isa = PBXGroup; children = (D10000000000000000000008 /* Browser */, D10000000000000000000009 /* Sunburst */, ); path = Features; sourceTree = "<group>"; };
 		D10000000000000000000008 /* Browser */ = {isa = PBXGroup; children = (B10000000000000000000007 /* BreadcrumbView.swift */, B10000000000000000000008 /* ContentView.swift */, B10000000000000000000006 /* DiskViewModel.swift */, B10000000000000000000009 /* NodeRowView.swift */, ); path = Browser; sourceTree = "<group>"; };
 		D10000000000000000000009 /* Sunburst */ = {isa = PBXGroup; children = (B1000000000000000000000A /* SunburstView.swift */, ); path = Sunburst; sourceTree = "<group>"; };
 		D1000000000000000000000B /* Shared */ = {isa = PBXGroup; children = (B10000000000000000000005 /* Utilities.swift */, ); path = Shared; sourceTree = "<group>"; };
 		D1000000000000000000000C /* Resources */ = {isa = PBXGroup; children = (B1000000000000000000000B /* Assets.xcassets */, B1000000000000000000000C /* Info.plist */, ); path = Resources; sourceTree = "<group>"; };
-		D1000000000000000000000D /* SpaceLensTests */ = {isa = PBXGroup; children = (B1000000000000000000000D /* DiskScannerCharacterizationTests.swift */, ); path = SpaceLensTests; sourceTree = "<group>"; };
+		D1000000000000000000000D /* SpaceLensTests */ = {isa = PBXGroup; children = (B1000000000000000000000D /* DiskScannerCharacterizationTests.swift */, B10000000000000000000012 /* ScanContractTests.swift */, ); path = SpaceLensTests; sourceTree = "<group>"; };
 		D1000000000000000000000E /* Products */ = {isa = PBXGroup; children = (B1000000000000000000000E /* SpaceLens.app */, B1000000000000000000000F /* SpaceLensTests.xctest */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -117,8 +123,8 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		F10000000000000000000003 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A1000000000000000000000A, ); runOnlyForDeploymentPostprocessing = 0; };
-		F10000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000C, ); runOnlyForDeploymentPostprocessing = 0; };
+		F10000000000000000000003 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A1000000000000000000000A, A1000000000000000000000E, A1000000000000000000000F, ); runOnlyForDeploymentPostprocessing = 0; };
+		F10000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000C, A10000000000000000000010, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
