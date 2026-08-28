@@ -1,6 +1,6 @@
 # ADR 001: Scanning semantics
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-28
 
 ## Context
@@ -19,14 +19,11 @@ The legacy scanner mixes logical file size with allocated size, skips hidden fil
 8. Make cancellation cooperative and prevent result delivery after cancellation.
 9. Bound filesystem concurrency.
 
-## Open decision: size metric
+## Size metric
 
-Choose one primary metric before implementing the new scanner:
-
-- Logical size is portable and familiar but may not match space consumed.
-- Allocated size better matches disk usage but requires clearly documented filesystem semantics.
-
-A secondary metric may be collected later, but UI totals must identify which metric they display.
+Allocated size is the primary metric because SpaceLens is a disk-space analyzer.
+Logical size is collected alongside it for inspection and future presentation,
+but changing visualization depth must never change either total.
 
 ## Consequences
 
