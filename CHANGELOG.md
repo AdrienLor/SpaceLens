@@ -31,6 +31,7 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Bound completed scan trees with a least-recently-used cache.
 - Improved sunburst heatmap clarity, dark-mode contrast, thin-sector targeting, and idle rendering cost.
 - Counted hard-linked allocation once while preserving logical size for every path.
+- Added reproducible Development or Developer ID DMG packaging.
 
 ## [1.1] - 2025-09-28
 

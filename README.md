@@ -59,17 +59,18 @@ Even with Full Disk Access, certain locations (for example, `/System`, Mail, or 
 
 ## Building a release
 
-Public releases require a `Developer ID Application` certificate installed in
-the login keychain. The packaging script builds the Release configuration,
-applies a Hardened Runtime signature, verifies it, and creates a signed DMG:
+The packaging script builds the Release configuration, applies a Hardened
+Runtime signature, verifies it, and creates a signed DMG. An `Apple Development`
+identity is sufficient for internal testing and limited distribution:
 
 ```sh
-SPACELENS_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+SPACELENS_SIGNING_IDENTITY="Apple Development: Your Name (TEAMID)" \
   ./scripts/package-release.sh
 ```
 
-To notarize and staple the DMG in the same run, first create a notarytool
-keychain profile and pass its name as `SPACELENS_NOTARY_PROFILE`.
+Public distribution without Gatekeeper warnings requires a `Developer ID
+Application` identity. Only in that mode can the script notarize and staple the
+DMG by using a notarytool profile passed as `SPACELENS_NOTARY_PROFILE`.
 
 ---
 
