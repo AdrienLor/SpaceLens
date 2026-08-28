@@ -84,6 +84,7 @@ final class DiskViewModel: ObservableObject {
         var immediateChildren: [URL: Node] = [:]
         var options = ScanOptions()
         options.maximumDepth = 8
+        options.maximumReportedDepth = 1
 
         scanTask = Task { [weak self] in
             guard let self else { return }

@@ -26,3 +26,9 @@ both the folder list and the sunburst hierarchy from the same result tree.
 The `Node` domain model is the scanner result and the shared input for list and
 sunburst presentation. Scan lifecycle state remains owned by `DiskViewModel`
 rather than being mixed into filesystem data.
+
+The scanner prefetches one metadata set per item. Discovery event depth can be
+limited independently from tree depth, allowing the browser to receive direct
+children progressively without flooding the main actor with deep descendants.
+Progress events are batched while the final update always contains complete
+statistics.

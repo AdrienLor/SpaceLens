@@ -16,6 +16,7 @@ struct ScanOptions: Sendable, Equatable {
     var packageTraversal: PackageTraversal = .singleNode
     var followsSymbolicLinks = false
     var maximumDepth: Int?
+    var maximumReportedDepth: Int?
     var maximumConcurrentMetadataRequests = 8
 }
 

@@ -11,6 +11,7 @@ final class ScanContractTests: XCTestCase {
         XCTAssertEqual(options.packageTraversal, .singleNode)
         XCTAssertFalse(options.followsSymbolicLinks)
         XCTAssertNil(options.maximumDepth)
+        XCTAssertNil(options.maximumReportedDepth)
         XCTAssertGreaterThan(options.maximumConcurrentMetadataRequests, 0)
     }
 

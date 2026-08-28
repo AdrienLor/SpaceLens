@@ -118,6 +118,47 @@ final class FileSystemDiskScannerTests: XCTestCase {
         XCTAssertTrue(didComplete)
     }
 
+    func testCanLimitDiscoveryEventsWithoutChangingCompletedTree() async throws {
+        let fixture = try TemporaryScanFixture()
+        _ = try fixture.createDirectory("first/second")
+        try fixture.writeFile("first/second/payload.bin", count: 32)
+        var options = ScanOptions()
+        options.maximumReportedDepth = 1
+        var discoveredNames: [String] = []
+        var completedRoot: Node?
+
+        for try await event in FileSystemDiskScanner().scan(fixture.url, options: options) {
+            switch event {
+            case .discovered(let node, _):
+                discoveredNames.append(node.name)
+            case .completed(let root):
+                completedRoot = root
+            case .started, .progress:
+                break
+            }
+        }
+
+        XCTAssertFalse(discoveredNames.contains("second"))
+        XCTAssertFalse(discoveredNames.contains("payload.bin"))
+        XCTAssertEqual(completedRoot?.children.first?.children.first?.children.first?.name, "payload.bin")
+    }
+
+    func testFinalProgressContainsAllDiscoveredItems() async throws {
+        let fixture = try TemporaryScanFixture()
+        try fixture.writeFile("first.bin", count: 10)
+        try fixture.writeFile("second.bin", count: 20)
+        var lastProgress: ScanStatistics?
+
+        for try await event in FileSystemDiskScanner().scan(fixture.url, options: ScanOptions()) {
+            if case .progress(let progress) = event {
+                lastProgress = progress
+            }
+        }
+
+        XCTAssertEqual(lastProgress?.discoveredItemCount, 3)
+        XCTAssertEqual(lastProgress?.logicalBytes, 30)
+    }
+
     private func completedResult(
         for url: URL,
         options: ScanOptions = ScanOptions()

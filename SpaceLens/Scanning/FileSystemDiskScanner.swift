@@ -2,6 +2,15 @@ import Foundation
 
 struct FileSystemDiskScanner: DiskScanning {
     private var fileManager: FileManager { FileManager.default }
+    private let resourceKeys: [URLResourceKey] = [
+        .isDirectoryKey,
+        .isRegularFileKey,
+        .isPackageKey,
+        .isSymbolicLinkKey,
+        .fileSizeKey,
+        .fileAllocatedSizeKey,
+        .totalFileAllocatedSizeKey
+    ]
 
     func scan(
         _ root: URL,
@@ -36,6 +45,7 @@ struct FileSystemDiskScanner: DiskScanning {
                         continuation: continuation
                     )
                     try Task.checkCancellation()
+                    emitProgress(state: state, currentURL: normalizedRoot, continuation: continuation)
                     continuation.yield(.completed(result))
                     continuation.finish()
                 } catch is CancellationError {
@@ -54,6 +64,9 @@ struct FileSystemDiskScanner: DiskScanning {
     private func validate(_ options: ScanOptions) throws {
         if let maximumDepth = options.maximumDepth, maximumDepth < 0 {
             throw ScanError.invalidOptions("maximumDepth must be zero or greater")
+        }
+        if let maximumReportedDepth = options.maximumReportedDepth, maximumReportedDepth < 0 {
+            throw ScanError.invalidOptions("maximumReportedDepth must be zero or greater")
         }
         guard options.maximumConcurrentMetadataRequests > 0 else {
             throw ScanError.invalidOptions(
@@ -75,19 +88,12 @@ struct FileSystemDiskScanner: DiskScanning {
 
         let values: URLResourceValues
         do {
-            values = try url.resourceValues(forKeys: [
-                .isDirectoryKey,
-                .isRegularFileKey,
-                .isPackageKey,
-                .fileSizeKey,
-                .fileAllocatedSizeKey,
-                .totalFileAllocatedSizeKey
-            ])
+            values = try url.resourceValues(forKeys: Set(resourceKeys))
         } catch {
             throw ScanError.metadataUnavailable(url, description: error.localizedDescription)
         }
 
-        if isSymbolicLink(url) {
+        if values.isSymbolicLink == true {
             let destination = try? fileManager.destinationOfSymbolicLink(atPath: url.path)
             let destinationURL = destination.map {
                 URL(fileURLWithPath: $0, relativeTo: url.deletingLastPathComponent())
@@ -102,7 +108,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .readable,
                 children: []
             )
-            emit(for: node, parent: parent, countBytes: false, state: &state, continuation: continuation)
+            emit(for: node, parent: parent, depth: depth, countBytes: false, options: options, state: &state, continuation: continuation)
             return node
         }
 
@@ -120,7 +126,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .readable,
                 children: []
             )
-            emit(for: node, parent: parent, countBytes: true, state: &state, continuation: continuation)
+            emit(for: node, parent: parent, depth: depth, countBytes: true, options: options, state: &state, continuation: continuation)
             return node
         }
 
@@ -135,7 +141,7 @@ struct FileSystemDiskScanner: DiskScanning {
         do {
             contents = try fileManager.contentsOfDirectory(
                 at: url,
-                includingPropertiesForKeys: nil,
+                includingPropertiesForKeys: resourceKeys,
                 options: directoryOptions
             )
         } catch {
@@ -148,7 +154,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .denied,
                 children: []
             )
-            emit(for: denied, parent: parent, countBytes: false, state: &state, continuation: continuation)
+            emit(for: denied, parent: parent, depth: depth, countBytes: false, options: options, state: &state, continuation: continuation)
             return denied
         }
 
@@ -196,15 +202,8 @@ struct FileSystemDiskScanner: DiskScanning {
                 lhs.size(using: options.sizeMetric) > rhs.size(using: options.sizeMetric)
             }
         )
-        emit(for: node, parent: parent, countBytes: false, state: &state, continuation: continuation)
+        emit(for: node, parent: parent, depth: depth, countBytes: false, options: options, state: &state, continuation: continuation)
         return node
-    }
-
-    private func isSymbolicLink(_ url: URL) -> Bool {
-        guard let type = try? fileManager.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType else {
-            return false
-        }
-        return type == .typeSymbolicLink
     }
 
     private func displayName(for url: URL) -> String {
@@ -214,23 +213,37 @@ struct FileSystemDiskScanner: DiskScanning {
     private func emit(
         for node: Node,
         parent: URL?,
+        depth: Int,
         countBytes: Bool,
+        options: ScanOptions,
         state: inout TraversalState,
         continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
     ) {
-        continuation.yield(.discovered(node, parent: parent))
+        if options.maximumReportedDepth.map({ depth <= $0 }) ?? true {
+            continuation.yield(.discovered(node, parent: parent))
+        }
         state.discoveredItemCount += 1
         if countBytes {
             state.logicalBytes += node.logicalSize
             state.allocatedBytes += node.allocatedSize
         }
+        if state.discoveredItemCount.isMultiple(of: 256) {
+            emitProgress(state: state, currentURL: node.url, continuation: continuation)
+        }
+    }
+
+    private func emitProgress(
+        state: TraversalState,
+        currentURL: URL,
+        continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
+    ) {
         continuation.yield(
             .progress(
                 ScanStatistics(
                     discoveredItemCount: state.discoveredItemCount,
                     logicalBytes: state.logicalBytes,
                     allocatedBytes: state.allocatedBytes,
-                    currentURL: node.url
+                    currentURL: currentURL
                 )
             )
         )

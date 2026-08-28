@@ -22,6 +22,7 @@
 		A10000000000000000000011 /* FileSystemDiskScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* FileSystemDiskScanner.swift */; };
 		A10000000000000000000012 /* FileSystemDiskScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* FileSystemDiskScannerTests.swift */; };
 		A10000000000000000000013 /* DiskViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* DiskViewModelTests.swift */; };
+		A10000000000000000000014 /* ScannerPerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* ScannerPerformanceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +54,7 @@
 		B10000000000000000000013 /* FileSystemDiskScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScanner.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* FileSystemDiskScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemDiskScannerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000015 /* DiskViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskViewModelTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000016 /* ScannerPerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerPerformanceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,7 +73,7 @@
 		D10000000000000000000009 /* Sunburst */ = {isa = PBXGroup; children = (B1000000000000000000000A /* SunburstView.swift */, ); path = Sunburst; sourceTree = "<group>"; };
 		D1000000000000000000000B /* Shared */ = {isa = PBXGroup; children = (B10000000000000000000005 /* Utilities.swift */, ); path = Shared; sourceTree = "<group>"; };
 		D1000000000000000000000C /* Resources */ = {isa = PBXGroup; children = (B1000000000000000000000B /* Assets.xcassets */, B1000000000000000000000C /* Info.plist */, ); path = Resources; sourceTree = "<group>"; };
-		D1000000000000000000000D /* SpaceLensTests */ = {isa = PBXGroup; children = (B10000000000000000000012 /* ScanContractTests.swift */, B10000000000000000000014 /* FileSystemDiskScannerTests.swift */, B10000000000000000000015 /* DiskViewModelTests.swift */, ); path = SpaceLensTests; sourceTree = "<group>"; };
+		D1000000000000000000000D /* SpaceLensTests */ = {isa = PBXGroup; children = (B10000000000000000000012 /* ScanContractTests.swift */, B10000000000000000000014 /* FileSystemDiskScannerTests.swift */, B10000000000000000000015 /* DiskViewModelTests.swift */, B10000000000000000000016 /* ScannerPerformanceTests.swift */, ); path = SpaceLensTests; sourceTree = "<group>"; };
 		D1000000000000000000000E /* Products */ = {isa = PBXGroup; children = (B1000000000000000000000E /* SpaceLens.app */, B1000000000000000000000F /* SpaceLensTests.xctest */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -124,7 +126,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		F10000000000000000000003 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A1000000000000000000000A, A1000000000000000000000E, A1000000000000000000000F, A10000000000000000000011, ); runOnlyForDeploymentPostprocessing = 0; };
-		F10000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000010, A10000000000000000000012, A10000000000000000000013, ); runOnlyForDeploymentPostprocessing = 0; };
+		F10000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000010, A10000000000000000000012, A10000000000000000000013, A10000000000000000000014, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

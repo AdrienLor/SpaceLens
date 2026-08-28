@@ -16,6 +16,12 @@ Run the headless Domain and Scanning test suite with:
 ./scripts/test.sh
 ```
 
+Run the opt-in synthetic scanner benchmark with:
+
+```sh
+./scripts/benchmark.sh
+```
+
 This path is suitable for local automation and CI because it does not require
 the Xcode test runner. The shared Xcode scheme remains the reference for the
 full application build and integration tests.
