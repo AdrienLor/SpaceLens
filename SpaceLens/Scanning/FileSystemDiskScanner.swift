@@ -70,7 +70,7 @@ struct FileSystemDiskScanner: DiskScanning {
         options: ScanOptions,
         state: inout TraversalState,
         continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
-    ) throws -> ScannedNode {
+    ) throws -> Node {
         try Task.checkCancellation()
 
         let values: URLResourceValues
@@ -93,7 +93,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 URL(fileURLWithPath: $0, relativeTo: url.deletingLastPathComponent())
                     .standardizedFileURL
             }
-            let node = ScannedNode(
+            let node = Node(
                 url: url,
                 name: displayName(for: url),
                 kind: .symbolicLink(destination: destinationURL),
@@ -111,7 +111,7 @@ struct FileSystemDiskScanner: DiskScanning {
             let allocatedSize = Int64(
                 values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? values.fileSize ?? 0
             )
-            let node = ScannedNode(
+            let node = Node(
                 url: url,
                 name: displayName(for: url),
                 kind: values.isRegularFile == true ? .regularFile : .other,
@@ -139,7 +139,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 options: directoryOptions
             )
         } catch {
-            let denied = ScannedNode(
+            let denied = Node(
                 url: url,
                 name: displayName(for: url),
                 kind: isPackage ? .package : .directory,
@@ -152,7 +152,7 @@ struct FileSystemDiskScanner: DiskScanning {
             return denied
         }
 
-        var scannedChildren: [ScannedNode] = []
+        var scannedChildren: [Node] = []
         var logicalSize: Int64 = 0
         var allocatedSize: Int64 = 0
         var deniedItemCount = 0
@@ -185,7 +185,7 @@ struct FileSystemDiskScanner: DiskScanning {
         let access: FolderAccess = deniedItemCount == 0
             ? .readable
             : .partiallyReadable(deniedItemCount: deniedItemCount)
-        let node = ScannedNode(
+        let node = Node(
             url: url,
             name: displayName(for: url),
             kind: isPackage ? .package : .directory,
@@ -212,7 +212,7 @@ struct FileSystemDiskScanner: DiskScanning {
     }
 
     private func emit(
-        for node: ScannedNode,
+        for node: Node,
         parent: URL?,
         countBytes: Bool,
         state: inout TraversalState,
@@ -243,7 +243,7 @@ private struct TraversalState {
     var allocatedBytes: Int64 = 0
 }
 
-private extension ScannedNode {
+private extension Node {
     var deniedItemCount: Int {
         switch access {
         case .readable:

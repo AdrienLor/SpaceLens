@@ -95,9 +95,9 @@ final class DiskViewModel: ObservableObject {
                     switch event {
                     case .started:
                         break
-                    case .discovered(let scannedNode, let parent):
+                    case .discovered(let discoveredNode, let parent):
                         if parent == target {
-                            let node = makeNode(from: scannedNode)
+                            let node = sortedTree(discoveredNode)
                             immediateChildren[node.url] = node
                             let sorted = sort(Array(immediateChildren.values))
                             cache[target] = sorted
@@ -106,7 +106,7 @@ final class DiskViewModel: ObservableObject {
                     case .progress:
                         break
                     case .completed(let scannedRoot):
-                        let root = makeNode(from: scannedRoot)
+                        let root = sortedTree(scannedRoot)
                         scannedRoots[target] = root
                         cache[target] = root.children
                         present(root, for: target)
@@ -152,7 +152,7 @@ final class DiskViewModel: ObservableObject {
         let sorted = sort(root.children)
         nodes = Array(sorted.prefix(displayLimit))
         cache[target] = sorted
-        sunburstRoot = replacingChildren(of: root, with: sorted)
+        sunburstRoot = root
         isScanning = false
         isSunburstRefreshing = false
         activeScanID = nil
@@ -201,14 +201,15 @@ final class DiskViewModel: ObservableObject {
         }
     }
 
-    private func makeNode(from scannedNode: ScannedNode) -> Node {
+    private func sortedTree(_ node: Node) -> Node {
         Node(
-            url: scannedNode.url,
-            name: scannedNode.name,
-            size: scannedNode.size(using: .allocated),
-            isDir: scannedNode.isDirectoryLike,
-            children: sort(scannedNode.children.map(makeNode(from:))),
-            accessDenied: scannedNode.access == .denied
+            url: node.url,
+            name: node.name,
+            kind: node.kind,
+            logicalSize: node.logicalSize,
+            allocatedSize: node.allocatedSize,
+            access: node.access,
+            children: sort(node.children.map(sortedTree))
         )
     }
 
@@ -219,12 +220,6 @@ final class DiskViewModel: ObservableObject {
             }
             return lhs.size > rhs.size
         }
-    }
-
-    private func replacingChildren(of node: Node, with children: [Node]) -> Node {
-        var updated = node
-        updated.children = children
-        return updated
     }
 
     private func cancelCurrentScan() {
@@ -271,22 +266,11 @@ extension DiskViewModel {
         return Node(
             url: currentFolder,
             name: currentFolder.lastPathComponent.isEmpty ? "/" : currentFolder.lastPathComponent,
-            size: children.reduce(0) { $0 + $1.size },
-            isDir: true,
-            children: children,
-            accessDenied: false,
-            isScanning: isScanning
+            kind: .directory,
+            logicalSize: children.reduce(0) { $0 + $1.logicalSize },
+            allocatedSize: children.reduce(0) { $0 + $1.allocatedSize },
+            access: .readable,
+            children: children
         )
-    }
-}
-
-private extension ScannedNode {
-    var isDirectoryLike: Bool {
-        switch kind {
-        case .directory, .package:
-            true
-        case .regularFile, .symbolicLink, .other:
-            false
-        }
     }
 }

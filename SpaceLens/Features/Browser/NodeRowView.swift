@@ -45,9 +45,6 @@ struct NodeRowView: View {
                     Text("Denied or Empty")
                         .foregroundColor(.red)
                         .frame(width: sizeColumnWidth, alignment: .trailing)
-                } else if node.isLoading {
-                    HStack { Spacer(); ProgressView().scaleEffect(0.85).controlSize(.small) }
-                        .frame(width: sizeColumnWidth, alignment: .trailing)
                 } else {
                     Text(ByteCountFormatter.string(fromByteCount: node.size, countStyle: .file))
                         .font(.footnote).monospacedDigit()

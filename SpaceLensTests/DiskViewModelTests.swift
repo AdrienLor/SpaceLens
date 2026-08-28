@@ -60,8 +60,8 @@ final class DiskViewModelTests: XCTestCase {
         XCTAssertTrue(condition(), "Condition was not satisfied", file: file, line: line)
     }
 
-    private func scannedFile(at url: URL, size: Int64) -> ScannedNode {
-        ScannedNode(
+    private func scannedFile(at url: URL, size: Int64) -> Node {
+        Node(
             url: url,
             name: url.lastPathComponent,
             kind: .regularFile,
@@ -107,8 +107,8 @@ private final class ControlledDiskScanner: DiskScanning, @unchecked Sendable {
         }
     }
 
-    func complete(root: URL, children: [ScannedNode]) {
-        let completedRoot = ScannedNode(
+    func complete(root: URL, children: [Node]) {
+        let completedRoot = Node(
             url: root,
             name: root.lastPathComponent,
             kind: .directory,

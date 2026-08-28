@@ -33,7 +33,7 @@ enum FolderAccess: Sendable, Equatable {
     case denied
 }
 
-struct ScannedNode: Identifiable, Sendable, Equatable {
+struct Node: Identifiable, Sendable, Equatable {
     var id: URL { url }
 
     let url: URL
@@ -42,7 +42,20 @@ struct ScannedNode: Identifiable, Sendable, Equatable {
     let logicalSize: Int64
     let allocatedSize: Int64
     let access: FolderAccess
-    let children: [ScannedNode]
+    let children: [Node]
+
+    var size: Int64 { allocatedSize }
+
+    var isDir: Bool {
+        switch kind {
+        case .directory, .package:
+            true
+        case .regularFile, .symbolicLink, .other:
+            false
+        }
+    }
+
+    var accessDenied: Bool { access == .denied }
 
     func size(using metric: FileSizeMetric) -> Int64 {
         switch metric {
@@ -63,9 +76,9 @@ struct ScanStatistics: Sendable, Equatable {
 
 enum ScanEvent: Sendable, Equatable {
     case started(root: URL)
-    case discovered(ScannedNode, parent: URL?)
+    case discovered(Node, parent: URL?)
     case progress(ScanStatistics)
-    case completed(ScannedNode)
+    case completed(Node)
 }
 
 enum ScanError: Error, Sendable, Equatable {

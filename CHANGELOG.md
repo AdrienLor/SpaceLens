@@ -13,6 +13,7 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Routed the folder list and sunburst through one shared scan result tree.
 - Removed repeated filesystem scans triggered by sunburst refreshes.
 - Removed the superseded synchronous scanner and its duplicate traversal logic.
+- Consolidated scan results and presentation data into one `Node` model.
 
 ## [1.1] - 2025-09-28
 

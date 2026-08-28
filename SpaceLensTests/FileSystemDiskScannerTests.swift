@@ -121,7 +121,7 @@ final class FileSystemDiskScannerTests: XCTestCase {
     private func completedResult(
         for url: URL,
         options: ScanOptions = ScanOptions()
-    ) async throws -> ScannedNode {
+    ) async throws -> Node {
         let scanner = FileSystemDiskScanner()
         for try await event in scanner.scan(url, options: options) {
             if case .completed(let result) = event {

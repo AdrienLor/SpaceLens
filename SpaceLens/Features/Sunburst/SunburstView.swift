@@ -168,21 +168,6 @@ struct SunburstView: View {
                 }
             }
 
-            if root.isScanning {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(0.8)
-                        .frame(width: 20, height: 20)
-                    Text("Building sunburst…")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.black.opacity(0.05))
-            }
-
             if isRefreshing {
                 VStack(spacing: 8) {
                     ProgressView()

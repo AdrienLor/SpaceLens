@@ -15,7 +15,7 @@ final class ScanContractTests: XCTestCase {
     }
 
     func testNodeSelectsRequestedSizeMetric() {
-        let node = ScannedNode(
+        let node = Node(
             url: URL(fileURLWithPath: "/fixture.bin"),
             name: "fixture.bin",
             kind: .regularFile,
@@ -30,7 +30,7 @@ final class ScanContractTests: XCTestCase {
     }
 
     func testEmptyReadableDirectoryIsNotDenied() {
-        let node = ScannedNode(
+        let node = Node(
             url: URL(fileURLWithPath: "/empty"),
             name: "empty",
             kind: .directory,
