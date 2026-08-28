@@ -87,6 +87,41 @@ final class DiskViewModelTests: XCTestCase {
         XCTAssertEqual(scanner.requestedOptions[root]?.packageTraversal, .descendants)
     }
 
+    func testChangingSizeMetricResortsCachedNodesWithoutRescanning() async {
+        let scanner = ControlledDiskScanner()
+        let viewModel = DiskViewModel(scanner: scanner)
+        let root = URL(fileURLWithPath: "/tmp/spacelens-size-metric", isDirectory: true)
+        let allocatedLeader = Node(
+            url: root.appendingPathComponent("allocated.bin"),
+            name: "allocated.bin",
+            kind: .regularFile,
+            logicalSize: 10,
+            allocatedSize: 100,
+            access: .readable,
+            children: []
+        )
+        let logicalLeader = Node(
+            url: root.appendingPathComponent("logical.bin"),
+            name: "logical.bin",
+            kind: .regularFile,
+            logicalSize: 200,
+            allocatedSize: 20,
+            access: .readable,
+            children: []
+        )
+
+        viewModel.openFolder(root)
+        await waitUntil { scanner.requestedRoots.contains(root) }
+        scanner.complete(root: root, children: [logicalLeader, allocatedLeader])
+        await waitUntil { !viewModel.isScanning }
+        XCTAssertEqual(viewModel.nodes.first?.name, "allocated.bin")
+
+        viewModel.setSizeMetric(.logical)
+
+        XCTAssertEqual(viewModel.nodes.first?.name, "logical.bin")
+        XCTAssertEqual(scanner.requestedRoots, [root])
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

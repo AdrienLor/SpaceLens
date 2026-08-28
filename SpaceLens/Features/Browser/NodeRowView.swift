@@ -4,6 +4,7 @@ struct NodeRowView: View {
     let node: Node
     let maxSize: Int64
     var isScanning = false
+    var sizeMetric: FileSizeMetric = .allocated
     let onOpen: (Node) -> Void
 
     private let nameColumnMinWidth: CGFloat = 140
@@ -64,7 +65,7 @@ struct NodeRowView: View {
                         .foregroundColor(.red)
                         .frame(width: sizeColumnWidth, alignment: .trailing)
                 } else {
-                    Text(ByteCountFormatter.string(fromByteCount: node.size, countStyle: .file))
+                    Text(ByteCountFormatter.string(fromByteCount: node.size(using: sizeMetric), countStyle: .file))
                         .font(.footnote).monospacedDigit()
                         .frame(width: sizeColumnWidth, alignment: .trailing)
                 }
@@ -73,7 +74,7 @@ struct NodeRowView: View {
             // Colonne 3 : Barre heatmap
             ZStack(alignment: .leading) {
                 GeometryReader { geo in
-                    let fraction = max(0, min(1, maxSize > 0 ? Double(node.size) / Double(maxSize) : 0))
+                    let fraction = max(0, min(1, maxSize > 0 ? Double(node.size(using: sizeMetric)) / Double(maxSize) : 0))
                     let width = max(fraction > 0 ? 2 : 0, geo.size.width * fraction)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(heatmapStyle.color(for: node, fraction: fraction))

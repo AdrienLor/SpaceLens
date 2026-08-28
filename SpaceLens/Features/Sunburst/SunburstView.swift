@@ -4,6 +4,7 @@ import AppKit
 struct SunburstView: View {
     let root: Node
     let heatmapStyle: HeatmapStyle
+    let sizeMetric: FileSizeMetric
     let maxDepth: Int
     let minFraction: Double = 0.01
     let onTap: (Node) -> Void
@@ -21,7 +22,9 @@ struct SunburstView: View {
             GeometryReader { geo in
                 let chartWidth = geo.size.width * 0.66
                 let listWidth = geo.size.width * 0.34
-                let sortedChildren = root.children.sorted { $0.size > $1.size }
+                let sortedChildren = root.children.sorted {
+                    $0.size(using: sizeMetric) > $1.size(using: sizeMetric)
+                }
 
                 HStack(spacing: 0) {
                     ZStack {
@@ -133,7 +136,7 @@ struct SunburstView: View {
                         VStack {
                             Text(root.name)
                                 .font(.headline)
-                            Text(ByteCountFormatter.string(fromByteCount: Int64(root.size), countStyle: .file))
+                            Text(ByteCountFormatter.string(fromByteCount: root.size(using: sizeMetric), countStyle: .file))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -149,6 +152,7 @@ struct SunburstView: View {
                                 NodeRowView(
                                     node: child,
                                     maxSize: 0,
+                                    sizeMetric: sizeMetric,
                                     onOpen: { url in
                                         onTap(child)
                                     }
@@ -184,7 +188,7 @@ struct SunburstView: View {
     }
 
     private func tooltip(for node: Node) -> String {
-        let size = ByteCountFormatter.string(fromByteCount: node.size, countStyle: .file)
+        let size = ByteCountFormatter.string(fromByteCount: node.size(using: sizeMetric), countStyle: .file)
         switch node.childrenState {
         case .complete:
             return "\(node.name) – \(size)"
@@ -206,7 +210,7 @@ struct SunburstView: View {
                            maxDepth: Int,
                            sectorsOut: inout [(Path, Node)]) {
         guard depth < maxDepth else { return }
-        let totalSize = nodes.map(\.size).reduce(0, +)
+        let totalSize = nodes.reduce(0) { $0 + $1.size(using: sizeMetric) }
         guard totalSize > 0 else { return }
 
         let totalRings = maxDepth
@@ -219,8 +223,9 @@ struct SunburstView: View {
         var smallNodes: [Node] = []
 
         for node in nodes {
-            guard node.size > 0 else { continue }
-            let fraction = Double(node.size) / Double(totalSize)
+            let nodeSize = node.size(using: sizeMetric)
+            guard nodeSize > 0 else { continue }
+            let fraction = Double(nodeSize) / Double(totalSize)
 
             if fraction < minFraction {
                 smallNodes.append(node)
@@ -261,7 +266,7 @@ struct SunburstView: View {
 
         // Regrouper les petits
         if !smallNodes.isEmpty {
-            let smallTotal = smallNodes.map(\.size).reduce(0, +)
+            let smallTotal = smallNodes.reduce(0) { $0 + $1.size(using: sizeMetric) }
             let fraction = Double(smallTotal) / Double(totalSize)
             let sweepDegrees = (endAngle.degrees - startAngle.degrees) * fraction
             let sweep = Angle(degrees: sweepDegrees)

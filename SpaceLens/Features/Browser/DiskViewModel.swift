@@ -16,6 +16,7 @@ final class DiskViewModel: ObservableObject {
     @Published var isSunburstRefreshing = false
     @Published private(set) var scanningNodeURLs: Set<URL> = []
     @Published var heatmapStyle: HeatmapStyle = .fileType
+    @Published private(set) var sizeMetric: FileSizeMetric = .allocated
 
     let baseDisplayLimit = 100
 
@@ -88,6 +89,7 @@ final class DiskViewModel: ObservableObject {
         options.maximumDepth = 8
         options.maximumReportedDepth = 1
         options.packageTraversal = .descendants
+        options.sizeMetric = sizeMetric
 
         scanTask = Task { [weak self] in
             guard let self else { return }
@@ -147,6 +149,21 @@ final class DiskViewModel: ObservableObject {
     /// depth is handled by SunburstView; no filesystem rescan is scheduled.
     func scheduleSunburstRefresh(maxDepth _: Int = 3) {
         refreshSunburstFromCurrentTree()
+    }
+
+    func setSizeMetric(_ metric: FileSizeMetric) {
+        guard sizeMetric != metric else { return }
+        sizeMetric = metric
+        guard let currentFolder else { return }
+        if let root = scannedRoots[currentFolder] {
+            let sortedRoot = sortedTree(root)
+            scannedRoots[currentFolder] = sortedRoot
+            present(sortedRoot, for: currentFolder)
+        } else {
+            let sorted = sort(cache[currentFolder] ?? nodes)
+            cache[currentFolder] = sorted
+            nodes = Array(sorted.prefix(displayLimit))
+        }
     }
 
     func goBackToPreviousView() {
@@ -231,10 +248,12 @@ final class DiskViewModel: ObservableObject {
 
     private func sort(_ nodes: [Node]) -> [Node] {
         nodes.sorted { lhs, rhs in
-            if lhs.size == rhs.size {
+            let lhsSize = lhs.size(using: sizeMetric)
+            let rhsSize = rhs.size(using: sizeMetric)
+            if lhsSize == rhsSize {
                 return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }
-            return lhs.size > rhs.size
+            return lhsSize > rhsSize
         }
     }
 

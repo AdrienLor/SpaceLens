@@ -27,6 +27,11 @@ struct ContentView: View {
     @State private var transientError: String?
     @State private var viewMode: String = "list"
     @AppStorage("sunburstDepth") private var sunburstDepth: Int = 4
+    @AppStorage("sizeMetric") private var sizeMetricRaw = FileSizeMetric.allocated.rawValue
+
+    private var sizeMetric: FileSizeMetric {
+        FileSizeMetric(rawValue: sizeMetricRaw) ?? .allocated
+    }
 
     @AppStorage("heatmapStyle") private var heatmapStyleRaw: String = "fileType"
     private var heatmapStyle: HeatmapStyle {
@@ -97,6 +102,16 @@ struct ContentView: View {
                         }
                         .buttonStyle(.borderless)
                         .frame(minWidth: 160)
+
+                        Picker("Size", selection: $sizeMetricRaw) {
+                            Text("On disk").tag(FileSizeMetric.allocated.rawValue)
+                            Text("Logical").tag(FileSizeMetric.logical.rawValue)
+                        }
+                        .labelsHidden()
+                        .frame(width: 90)
+                        .onChange(of: sizeMetricRaw) { _, _ in
+                            vm.setSizeMetric(sizeMetric)
+                        }
 
                         if viewMode == "sunburst" {
                             HStack(spacing: 4) {
@@ -187,13 +202,14 @@ struct ContentView: View {
 
                 // Liste principale or SunburstView
                 if viewMode == "list" {
-                    let maxSize = vm.nodes.map(\.size).max() ?? 1
+                    let maxSize = vm.nodes.map { $0.size(using: sizeMetric) }.max() ?? 1
                     List {
                         ForEach(vm.nodes) { node in
                             NodeRowView(
                                 node: node,
                                 maxSize: maxSize,
-                                isScanning: vm.scanningNodeURLs.contains(node.url)
+                                isScanning: vm.scanningNodeURLs.contains(node.url),
+                                sizeMetric: sizeMetric
                             ) { tapped in
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     vm.openFolder(tapped.url)
@@ -227,6 +243,7 @@ struct ContentView: View {
                             SunburstView(
                                 root: root,
                                 heatmapStyle: heatmapStyle,
+                                sizeMetric: sizeMetric,
                                 maxDepth: sunburstDepth,
                                 onTap: { tapped in
                                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -395,6 +412,7 @@ struct ContentView: View {
         .padding(.bottom, 6)
         .frame(minWidth: 960, minHeight: 400)
         .onAppear {
+            vm.setSizeMetric(sizeMetric)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 if !hasFullDiskAccess() {
                     showFullDiskAccessAlert = true
