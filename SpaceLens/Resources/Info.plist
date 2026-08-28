@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2025 Adrien Lorette</string>
+	<string>© 2026 Adrien Lorette</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>CFBundleName</key>
 	<string>SpaceLens</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 </dict>
 </plist>

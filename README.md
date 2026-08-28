@@ -57,6 +57,20 @@ Even with Full Disk Access, certain locations (for example, `/System`, Mail, or 
 - Uses **FileManager** for recursive scanning.  
 - The sunburst view is rendered using **Canvas** for performance.  
 
+## Building a release
+
+Public releases require a `Developer ID Application` certificate installed in
+the login keychain. The packaging script builds the Release configuration,
+applies a Hardened Runtime signature, verifies it, and creates a signed DMG:
+
+```sh
+SPACELENS_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+  ./scripts/package-release.sh
+```
+
+To notarize and staple the DMG in the same run, first create a notarytool
+keychain profile and pass its name as `SPACELENS_NOTARY_PROFILE`.
+
 ---
 
 ## License

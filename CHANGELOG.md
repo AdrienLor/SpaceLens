@@ -1,19 +1,18 @@
 # Changelog
 
-- Improve sunburst heatmap clarity, hierarchy highlighting, inspectability, and idle rendering cost.
-- Make thin sunburst sectors easier to target without hiding them under hover outlines.
-- Adapt sunburst contrast, separators, and tooltips for dark appearance.
-- Increase light-mode palette density and dark-mode sector separation.
-- Count hard-linked file allocation once and identify possible APFS clone sharing in the list.
-- Avoid rebuilding and sorting the complete node tree a second time when a scan completes.
-- Reuse immutable filesystem resource-key sets across metadata reads.
-- Show live scan item/byte/location statistics and provide an explicit cancel action.
-
 All notable changes to SpaceLens will be documented in this file.
 
 The project follows the principles of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [1.2] - 2026-08-28
+
+### Added
+
+- Live scan item, byte, and current-location progress with explicit cancellation.
+- Instant switching between allocated on-disk and logical sizes.
+- Indicators for hard links, possible APFS clone sharing, truncated branches, and package boundaries.
 
 ### Changed
 
@@ -30,6 +29,8 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Allow the browser and sunburst to inspect descendants inside macOS packages.
 - Add an instant switch between allocated disk usage and logical file size.
 - Bound completed scan trees with a least-recently-used cache.
+- Improved sunburst heatmap clarity, dark-mode contrast, thin-sector targeting, and idle rendering cost.
+- Counted hard-linked allocation once while preserving logical size for every path.
 
 ## [1.1] - 2025-09-28
 
