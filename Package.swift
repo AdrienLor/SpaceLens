@@ -16,13 +16,17 @@ let package = Package(
             path: "SpaceLens",
             exclude: [
                 "App",
-                "Features",
+                "Features/Browser/BreadcrumbView.swift",
+                "Features/Browser/ContentView.swift",
+                "Features/Browser/NodeRowView.swift",
+                "Features/Sunburst",
                 "Resources",
                 "Shared"
             ],
             sources: [
                 "Domain",
-                "Scanning"
+                "Scanning",
+                "Features/Browser/DiskViewModel.swift"
             ]
         ),
         .testTarget(
