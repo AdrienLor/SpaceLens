@@ -190,7 +190,11 @@ struct ContentView: View {
                     let maxSize = vm.nodes.map(\.size).max() ?? 1
                     List {
                         ForEach(vm.nodes) { node in
-                            NodeRowView(node: node, maxSize: maxSize) { tapped in
+                            NodeRowView(
+                                node: node,
+                                maxSize: maxSize,
+                                isScanning: vm.scanningNodeURLs.contains(node.url)
+                            ) { tapped in
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     vm.openFolder(tapped.url)
                                     if tapped.url.path == "/" && !hasFullDiskAccess() {

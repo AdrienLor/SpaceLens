@@ -159,6 +159,10 @@ struct FileSystemDiskScanner: DiskScanning {
             return denied
         }
 
+        if depth == 0 {
+            reportRootDirectories(in: contents, parent: url, reporter: reporter)
+        }
+
         let aggregate: ChildScanAggregate
         if depth == 0 && contents.count > 1 {
             aggregate = try scanRootChildren(
@@ -203,6 +207,31 @@ struct FileSystemDiskScanner: DiskScanning {
         )
         reporter.record(node, parent: parent, depth: depth, countBytes: false)
         return node
+    }
+
+    private func reportRootDirectories(
+        in urls: [URL],
+        parent: URL,
+        reporter: ScanReporter
+    ) {
+        for url in urls {
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey]),
+                  values.isDirectory == true else {
+                continue
+            }
+            reporter.list(
+                Node(
+                    url: url,
+                    name: displayName(for: url),
+                    kind: values.isPackage == true ? .package : .directory,
+                    logicalSize: 0,
+                    allocatedSize: 0,
+                    access: .readable,
+                    children: []
+                ),
+                parent: parent
+            )
+        }
     }
 
     private func scanRootChildren(
@@ -355,6 +384,10 @@ private final class ScanReporter: @unchecked Sendable {
     ) {
         self.options = options
         self.continuation = continuation
+    }
+
+    func list(_ node: Node, parent: URL) {
+        continuation.yield(.listed(node, parent: parent))
     }
 
     func record(_ node: Node, parent: URL?, depth: Int, countBytes: Bool) {

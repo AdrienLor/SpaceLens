@@ -3,6 +3,7 @@ import SwiftUI
 struct NodeRowView: View {
     let node: Node
     let maxSize: Int64
+    var isScanning = false
     let onOpen: (Node) -> Void
 
     private let nameColumnMinWidth: CGFloat = 140
@@ -41,7 +42,10 @@ struct NodeRowView: View {
 
             // Colonne 2 : Taille / état
             Group {
-                if node.accessDenied {
+                if isScanning {
+                    HStack { Spacer(); ProgressView().controlSize(.small) }
+                        .frame(width: sizeColumnWidth, alignment: .trailing)
+                } else if node.accessDenied {
                     Text("Denied or Empty")
                         .foregroundColor(.red)
                         .frame(width: sizeColumnWidth, alignment: .trailing)

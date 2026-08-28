@@ -77,6 +77,7 @@ struct ScanStatistics: Sendable, Equatable {
 
 enum ScanEvent: Sendable, Equatable {
     case started(root: URL)
+    case listed(Node, parent: URL)
     case discovered(Node, parent: URL?)
     case progress(ScanStatistics)
     case completed(Node)

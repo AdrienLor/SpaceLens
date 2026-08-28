@@ -14,6 +14,7 @@ final class DiskViewModel: ObservableObject {
     @Published var cache: [URL: [Node]] = [:]
     @Published var sunburstRoot: Node?
     @Published var isSunburstRefreshing = false
+    @Published private(set) var scanningNodeURLs: Set<URL> = []
     @Published var heatmapStyle: HeatmapStyle = .fileType
 
     let baseDisplayLimit = 100
@@ -76,6 +77,7 @@ final class DiskViewModel: ObservableObject {
 
         nodes = []
         sunburstRoot = nil
+        scanningNodeURLs = []
         isScanning = true
         isSunburstRefreshing = true
 
@@ -96,10 +98,19 @@ final class DiskViewModel: ObservableObject {
                     switch event {
                     case .started:
                         break
+                    case .listed(let listedNode, let parent):
+                        if parent == target {
+                            immediateChildren[listedNode.url] = listedNode
+                            scanningNodeURLs.insert(listedNode.url)
+                            let sorted = sort(Array(immediateChildren.values))
+                            cache[target] = sorted
+                            nodes = Array(sorted.prefix(displayLimit))
+                        }
                     case .discovered(let discoveredNode, let parent):
                         if parent == target {
                             let node = sortedTree(discoveredNode)
                             immediateChildren[node.url] = node
+                            scanningNodeURLs.remove(node.url)
                             let sorted = sort(Array(immediateChildren.values))
                             cache[target] = sorted
                             nodes = Array(sorted.prefix(displayLimit))
@@ -156,6 +167,7 @@ final class DiskViewModel: ObservableObject {
         sunburstRoot = root
         isScanning = false
         isSunburstRefreshing = false
+        scanningNodeURLs = []
         activeScanID = nil
         scanTask = nil
     }
@@ -163,6 +175,7 @@ final class DiskViewModel: ObservableObject {
     private func handleScanFailure(_ error: Error, target: URL) {
         isScanning = false
         isSunburstRefreshing = false
+        scanningNodeURLs = []
         activeScanID = nil
         scanTask = nil
         errorMessage = message(for: error)
@@ -238,6 +251,7 @@ final class DiskViewModel: ObservableObject {
         sunburstRoot = nil
         isScanning = false
         isSunburstRefreshing = false
+        scanningNodeURLs = []
     }
 
     private func normalized(_ url: URL) -> URL {

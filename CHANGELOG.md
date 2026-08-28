@@ -16,6 +16,7 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Consolidated scan results and presentation data into one `Node` model.
 - Reduced scanner metadata reads and batched progress delivery for faster traversal.
 - Added a globally bounded worker queue for root-level subtree scanning.
+- Display root directories immediately while their sizes are still being calculated.
 
 ## [1.1] - 2025-09-28
 

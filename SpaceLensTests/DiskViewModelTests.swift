@@ -49,6 +49,33 @@ final class DiskViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isSunburstRefreshing)
     }
 
+    func testListedDirectoryAppearsWhileItsSizeIsStillScanning() async throws {
+        let scanner = ControlledDiskScanner()
+        let viewModel = DiskViewModel(scanner: scanner)
+        let root = URL(fileURLWithPath: "/tmp/spacelens-progressive", isDirectory: true)
+        let child = Node(
+            url: root.appendingPathComponent("large-folder", isDirectory: true),
+            name: "large-folder",
+            kind: .directory,
+            logicalSize: 0,
+            allocatedSize: 0,
+            access: .readable,
+            children: []
+        )
+
+        viewModel.openFolder(root)
+        await waitUntil { scanner.requestedRoots.contains(root) }
+        scanner.list(child, parent: root)
+        await waitUntil { viewModel.nodes.first?.url == child.url }
+
+        XCTAssertTrue(viewModel.scanningNodeURLs.contains(child.url))
+
+        scanner.complete(root: root, children: [child])
+        await waitUntil { !viewModel.isScanning }
+
+        XCTAssertFalse(viewModel.scanningNodeURLs.contains(child.url))
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,
@@ -120,5 +147,10 @@ private final class ControlledDiskScanner: DiskScanning, @unchecked Sendable {
         let continuation = lock.withLock { continuations.removeValue(forKey: root) }
         continuation?.yield(.completed(completedRoot))
         continuation?.finish()
+    }
+
+    func list(_ node: Node, parent: URL) {
+        let continuation = lock.withLock { continuations[parent] }
+        continuation?.yield(.listed(node, parent: parent))
     }
 }

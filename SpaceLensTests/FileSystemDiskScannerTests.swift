@@ -109,13 +109,39 @@ final class FileSystemDiskScannerTests: XCTestCase {
                 directChildren.append(node.name)
             case .completed:
                 didComplete = true
-            case .started, .discovered, .progress:
+            case .started, .listed, .discovered, .progress:
                 break
             }
         }
 
         XCTAssertEqual(Set(directChildren), ["first.bin", "second.bin"])
         XCTAssertTrue(didComplete)
+    }
+
+    func testListsRootDirectoryBeforeItsCompletedDiscovery() async throws {
+        let fixture = try TemporaryScanFixture()
+        _ = try fixture.createDirectory("large-folder")
+        try fixture.writeFile("large-folder/payload.bin", count: 64)
+        var didList = false
+        var didDiscoverCompletedDirectory = false
+
+        for try await event in FileSystemDiskScanner().scan(fixture.url, options: ScanOptions()) {
+            switch event {
+            case .listed(let node, let parent)
+                where parent == fixture.url && node.name == "large-folder":
+                XCTAssertFalse(didDiscoverCompletedDirectory)
+                didList = true
+            case .discovered(let node, let parent)
+                where parent == fixture.url && node.name == "large-folder":
+                XCTAssertTrue(didList)
+                didDiscoverCompletedDirectory = true
+            case .started, .listed, .discovered, .progress, .completed:
+                break
+            }
+        }
+
+        XCTAssertTrue(didList)
+        XCTAssertTrue(didDiscoverCompletedDirectory)
     }
 
     func testCanLimitDiscoveryEventsWithoutChangingCompletedTree() async throws {
@@ -133,7 +159,7 @@ final class FileSystemDiskScannerTests: XCTestCase {
                 discoveredNames.append(node.name)
             case .completed(let root):
                 completedRoot = root
-            case .started, .progress:
+            case .started, .listed, .progress:
                 break
             }
         }

@@ -37,3 +37,7 @@ Root children are distributed across a fixed worker pool. Each worker scans one
 subtree sequentially, so concurrency is globally bounded without recursive task
 fan-out. The default of two workers is based on the synthetic throughput
 benchmark; callers can still override it through `ScanOptions`.
+
+Before root subtrees are processed, directory metadata is emitted as a `listed`
+event. The browser uses it to show every direct folder immediately and tracks
+pending sizes separately from the immutable `Node` model.
