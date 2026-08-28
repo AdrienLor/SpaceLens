@@ -28,6 +28,20 @@ struct NodeRowView: View {
                 Text(node.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                if !isScanning {
+                    switch node.childrenState {
+                    case .complete:
+                        EmptyView()
+                    case .depthLimited:
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundColor(.orange)
+                            .help("Deeper contents are not loaded. Open this folder to scan it.")
+                    case .packageBoundary:
+                        Image(systemName: "shippingbox")
+                            .foregroundColor(.secondary)
+                            .help("Package contents are grouped into a single item.")
+                    }
+                }
             }
             .frame(minWidth: nameColumnMinWidth,
                    idealWidth: nameColumnIdealWidth,

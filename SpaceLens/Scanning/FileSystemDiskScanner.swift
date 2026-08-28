@@ -189,6 +189,14 @@ struct FileSystemDiskScanner: DiskScanning {
         let access: FolderAccess = aggregate.deniedItemCount == 0
             ? .readable
             : .partiallyReadable(deniedItemCount: aggregate.deniedItemCount)
+        let childrenState: NodeChildrenState
+        if !contents.isEmpty && exposeChildren && !shouldExposeAtDepth {
+            childrenState = .depthLimited
+        } else if !contents.isEmpty && exposeChildren && !shouldExposePackageChildren {
+            childrenState = .packageBoundary
+        } else {
+            childrenState = .complete
+        }
         let node = Node(
             url: url,
             name: displayName(for: url),
@@ -203,7 +211,8 @@ struct FileSystemDiskScanner: DiskScanning {
                     return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
                 }
                 return lhsSize > rhsSize
-            }
+            },
+            childrenState: childrenState
         )
         reporter.record(node, parent: parent, depth: depth, countBytes: false)
         return node

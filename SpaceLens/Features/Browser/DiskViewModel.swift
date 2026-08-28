@@ -223,7 +223,8 @@ final class DiskViewModel: ObservableObject {
             logicalSize: node.logicalSize,
             allocatedSize: node.allocatedSize,
             access: node.access,
-            children: sort(node.children.map(sortedTree))
+            children: sort(node.children.map(sortedTree)),
+            childrenState: node.childrenState
         )
     }
 

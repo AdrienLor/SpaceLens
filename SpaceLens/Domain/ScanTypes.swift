@@ -34,6 +34,12 @@ enum FolderAccess: Sendable, Equatable {
     case denied
 }
 
+enum NodeChildrenState: Sendable, Equatable {
+    case complete
+    case depthLimited
+    case packageBoundary
+}
+
 struct Node: Identifiable, Sendable, Equatable {
     var id: URL { url }
 
@@ -44,6 +50,7 @@ struct Node: Identifiable, Sendable, Equatable {
     let allocatedSize: Int64
     let access: FolderAccess
     let children: [Node]
+    var childrenState: NodeChildrenState = .complete
 
     var size: Int64 { allocatedSize }
 

@@ -41,3 +41,8 @@ benchmark; callers can still override it through `ScanOptions`.
 Before root subtrees are processed, directory metadata is emitted as a `listed`
 event. The browser uses it to show every direct folder immediately and tracks
 pending sizes separately from the immutable `Node` model.
+
+`Node.childrenState` distinguishes a genuinely empty or complete folder from a
+tree leaf caused by the visualization depth limit or package grouping. Opening
+such a folder starts a new root scan, making its next levels available without
+retaining an unbounded whole-disk tree.

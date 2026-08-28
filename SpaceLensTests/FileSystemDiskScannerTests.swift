@@ -73,7 +73,9 @@ final class FileSystemDiskScannerTests: XCTestCase {
         XCTAssertEqual(shallow.logicalSize, deep.logicalSize)
         XCTAssertEqual(shallow.allocatedSize, deep.allocatedSize)
         XCTAssertTrue(shallow.children.first?.children.isEmpty == true)
+        XCTAssertEqual(shallow.children.first?.childrenState, .depthLimited)
         XCTAssertFalse(deep.children.first?.children.isEmpty == true)
+        XCTAssertEqual(deep.children.first?.childrenState, .complete)
     }
 
     func testInvalidConcurrencyLimitFailsBeforeScanning() async {

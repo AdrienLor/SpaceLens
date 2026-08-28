@@ -17,6 +17,7 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Reduced scanner metadata reads and batched progress delivery for faster traversal.
 - Added a globally bounded worker queue for root-level subtree scanning.
 - Display root directories immediately while their sizes are still being calculated.
+- Distinguish complete folders from depth-limited and package-boundary nodes.
 
 ## [1.1] - 2025-09-28
 

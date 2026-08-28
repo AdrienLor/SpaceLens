@@ -121,7 +121,7 @@ struct SunburstView: View {
                             }
                         }
                         if let hovered = hoveredNode, let loc = hoverLocation {
-                            Text("\(hovered.name) – \(ByteCountFormatter.string(fromByteCount: Int64(hovered.size), countStyle: .file))")
+                            Text(tooltip(for: hovered))
                                 .font(.caption)
                                 .padding(4)
                                 .background(Color.black.opacity(0.7))
@@ -180,6 +180,18 @@ struct SunburstView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 .padding()
             }
+        }
+    }
+
+    private func tooltip(for node: Node) -> String {
+        let size = ByteCountFormatter.string(fromByteCount: node.size, countStyle: .file)
+        switch node.childrenState {
+        case .complete:
+            return "\(node.name) – \(size)"
+        case .depthLimited:
+            return "\(node.name) – \(size) – deeper contents not loaded"
+        case .packageBoundary:
+            return "\(node.name) – \(size) – package contents grouped"
         }
     }
 
