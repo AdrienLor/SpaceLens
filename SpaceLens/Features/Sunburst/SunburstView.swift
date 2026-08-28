@@ -421,19 +421,19 @@ struct SunburstView: View {
         guard heatmapStyle == .fileType, node.isDir else {
             baseColor = heatmapStyle.color(for: node, fraction: fraction)
             return colorScheme == .dark
-                ? baseColor.interpolate(to: .white, fraction: 0.1)
-                : baseColor
+                ? solidColor(baseColor).interpolate(to: .white, fraction: 0.1)
+                : solidColor(baseColor, opacity: 0.88)
         }
         guard let representative = dominantLeaf(in: node) else {
             baseColor = heatmapStyle.color(for: node, fraction: fraction)
             return colorScheme == .dark
-                ? baseColor.interpolate(to: .white, fraction: 0.1)
-                : baseColor
+                ? solidColor(baseColor).interpolate(to: .white, fraction: 0.1)
+                : solidColor(baseColor, opacity: 0.88)
         }
         baseColor = heatmapStyle.color(for: representative, fraction: fraction)
         return colorScheme == .dark
-            ? baseColor.interpolate(to: .white, fraction: 0.08)
-            : baseColor
+            ? solidColor(baseColor).interpolate(to: .white, fraction: 0.08)
+            : solidColor(baseColor, opacity: 0.88)
     }
 
     private func dominantLeaf(in node: Node) -> Node? {
@@ -473,11 +473,13 @@ struct SunburstView: View {
 
     private func baseStrokeWidth(for path: Path) -> CGFloat? {
         guard let hoverWidth = hoverStrokeWidth(for: path) else { return nil }
-        return min(0.8, hoverWidth * 0.5)
+        let maximum: CGFloat = colorScheme == .dark ? 1.05 : 0.8
+        let multiplier: CGFloat = colorScheme == .dark ? 0.65 : 0.5
+        return min(maximum, hoverWidth * multiplier)
     }
 
     private var separatorColor: Color {
-        Color.primary.opacity(colorScheme == .dark ? 0.42 : 0.28)
+        Color.primary.opacity(colorScheme == .dark ? 0.62 : 0.3)
     }
 
     private var hoverColor: Color {
@@ -488,6 +490,18 @@ struct SunburstView: View {
         colorScheme == .dark
             ? Color(red: 0.12, green: 0.12, blue: 0.14).opacity(0.96)
             : Color.white.opacity(0.96)
+    }
+
+    private func solidColor(_ color: Color, opacity: Double = 0.94) -> Color {
+        guard let resolved = NSColor(color).usingColorSpace(.deviceRGB) else {
+            return color
+        }
+        return Color(
+            red: Double(resolved.redComponent),
+            green: Double(resolved.greenComponent),
+            blue: Double(resolved.blueComponent),
+            opacity: opacity
+        )
     }
 
     private func findNode(by id: Node.ID, in node: Node) -> Node? {
