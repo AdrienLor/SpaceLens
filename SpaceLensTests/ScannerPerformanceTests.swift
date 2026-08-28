@@ -14,6 +14,10 @@ final class ScannerPerformanceTests: XCTestCase {
         var completedRoot: Node?
         var options = ScanOptions()
         options.maximumReportedDepth = 1
+        if let rawConcurrency = ProcessInfo.processInfo.environment["SPACELENS_BENCHMARK_CONCURRENCY"],
+           let concurrency = Int(rawConcurrency) {
+            options.maximumConcurrentMetadataRequests = concurrency
+        }
 
         for try await event in FileSystemDiskScanner().scan(fixture.url, options: options) {
             if case .completed(let root) = event {
@@ -30,7 +34,8 @@ final class ScannerPerformanceTests: XCTestCase {
         XCTAssertEqual(completedRoot?.children.count, 40)
         print(
             String(
-                format: "SPACELENS_BENCHMARK items=%d seconds=%.4f items_per_second=%.0f",
+                format: "SPACELENS_BENCHMARK workers=%d items=%d seconds=%.4f items_per_second=%.0f",
+                options.maximumConcurrentMetadataRequests,
                 itemCount,
                 seconds,
                 itemsPerSecond

@@ -15,6 +15,7 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Removed the superseded synchronous scanner and its duplicate traversal logic.
 - Consolidated scan results and presentation data into one `Node` model.
 - Reduced scanner metadata reads and batched progress delivery for faster traversal.
+- Added a globally bounded worker queue for root-level subtree scanning.
 
 ## [1.1] - 2025-09-28
 

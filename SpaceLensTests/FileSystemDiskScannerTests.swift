@@ -159,6 +159,23 @@ final class FileSystemDiskScannerTests: XCTestCase {
         XCTAssertEqual(lastProgress?.logicalBytes, 30)
     }
 
+    func testBoundedWorkersProduceTheSameTreeAsSequentialScanning() async throws {
+        let fixture = try TemporaryScanFixture()
+        try fixture.writeFile("alpha/first.bin", count: 10)
+        try fixture.writeFile("alpha/second.bin", count: 20)
+        try fixture.writeFile("beta/third.bin", count: 30)
+        try fixture.writeFile("gamma/fourth.bin", count: 40)
+        var sequentialOptions = ScanOptions()
+        sequentialOptions.maximumConcurrentMetadataRequests = 1
+        var concurrentOptions = ScanOptions()
+        concurrentOptions.maximumConcurrentMetadataRequests = 4
+
+        let sequential = try await completedResult(for: fixture.url, options: sequentialOptions)
+        let concurrent = try await completedResult(for: fixture.url, options: concurrentOptions)
+
+        XCTAssertEqual(concurrent, sequential)
+    }
+
     private func completedResult(
         for url: URL,
         options: ScanOptions = ScanOptions()

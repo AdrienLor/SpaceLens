@@ -32,3 +32,8 @@ limited independently from tree depth, allowing the browser to receive direct
 children progressively without flooding the main actor with deep descendants.
 Progress events are batched while the final update always contains complete
 statistics.
+
+Root children are distributed across a fixed worker pool. Each worker scans one
+subtree sequentially, so concurrency is globally bounded without recursive task
+fan-out. The default of two workers is based on the synthetic throughput
+benchmark; callers can still override it through `ScanOptions`.

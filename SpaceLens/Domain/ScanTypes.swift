@@ -17,7 +17,7 @@ struct ScanOptions: Sendable, Equatable {
     var followsSymbolicLinks = false
     var maximumDepth: Int?
     var maximumReportedDepth: Int?
-    var maximumConcurrentMetadataRequests = 8
+    var maximumConcurrentMetadataRequests = 2
 }
 
 enum ScannedItemKind: Sendable, Equatable {

@@ -16,13 +16,13 @@ struct FileSystemDiskScanner: DiskScanning {
         _ root: URL,
         options: ScanOptions
     ) -> AsyncThrowingStream<ScanEvent, Error> {
-        AsyncThrowingStream { continuation in
+        let cancellation = ScanCancellation()
+        return AsyncThrowingStream { continuation in
             let task = Task.detached(priority: .utility) {
                 do {
                     try validate(options)
                     let normalizedRoot = root.standardizedFileURL
                     var isDirectory: ObjCBool = false
-
                     guard fileManager.fileExists(
                         atPath: normalizedRoot.path,
                         isDirectory: &isDirectory
@@ -34,18 +34,18 @@ struct FileSystemDiskScanner: DiskScanning {
                     }
 
                     continuation.yield(.started(root: normalizedRoot))
-                    var state = TraversalState()
+                    let reporter = ScanReporter(options: options, continuation: continuation)
                     let result = try scanItem(
                         at: normalizedRoot,
                         parent: nil,
                         depth: 0,
                         exposeChildren: true,
                         options: options,
-                        state: &state,
-                        continuation: continuation
+                        reporter: reporter,
+                        cancellation: cancellation
                     )
-                    try Task.checkCancellation()
-                    emitProgress(state: state, currentURL: normalizedRoot, continuation: continuation)
+                    try checkCancellation(cancellation)
+                    reporter.emitFinalProgress(currentURL: normalizedRoot)
                     continuation.yield(.completed(result))
                     continuation.finish()
                 } catch is CancellationError {
@@ -56,6 +56,7 @@ struct FileSystemDiskScanner: DiskScanning {
             }
 
             continuation.onTermination = { @Sendable _ in
+                cancellation.cancel()
                 task.cancel()
             }
         }
@@ -81,10 +82,10 @@ struct FileSystemDiskScanner: DiskScanning {
         depth: Int,
         exposeChildren: Bool,
         options: ScanOptions,
-        state: inout TraversalState,
-        continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
+        reporter: ScanReporter,
+        cancellation: ScanCancellation
     ) throws -> Node {
-        try Task.checkCancellation()
+        try checkCancellation(cancellation)
 
         let values: URLResourceValues
         do {
@@ -108,7 +109,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .readable,
                 children: []
             )
-            emit(for: node, parent: parent, depth: depth, countBytes: false, options: options, state: &state, continuation: continuation)
+            reporter.record(node, parent: parent, depth: depth, countBytes: false)
             return node
         }
 
@@ -126,7 +127,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .readable,
                 children: []
             )
-            emit(for: node, parent: parent, depth: depth, countBytes: true, options: options, state: &state, continuation: continuation)
+            reporter.record(node, parent: parent, depth: depth, countBytes: true)
             return node
         }
 
@@ -154,89 +155,231 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .denied,
                 children: []
             )
-            emit(for: denied, parent: parent, depth: depth, countBytes: false, options: options, state: &state, continuation: continuation)
+            reporter.record(denied, parent: parent, depth: depth, countBytes: false)
             return denied
         }
 
-        var scannedChildren: [Node] = []
-        var logicalSize: Int64 = 0
-        var allocatedSize: Int64 = 0
-        var deniedItemCount = 0
-
-        for childURL in contents {
-            try Task.checkCancellation()
-            do {
-                let child = try scanItem(
-                    at: childURL,
-                    parent: url,
-                    depth: depth + 1,
-                    exposeChildren: exposeDescendants,
-                    options: options,
-                    state: &state,
-                    continuation: continuation
-                )
-                logicalSize += child.logicalSize
-                allocatedSize += child.allocatedSize
-                deniedItemCount += child.deniedItemCount
-                if exposeDescendants {
-                    scannedChildren.append(child)
-                }
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                deniedItemCount += 1
-            }
+        let aggregate: ChildScanAggregate
+        if depth == 0 && contents.count > 1 {
+            aggregate = try scanRootChildren(
+                contents,
+                parent: url,
+                depth: depth + 1,
+                exposeChildren: exposeDescendants,
+                options: options,
+                reporter: reporter,
+                cancellation: cancellation
+            )
+        } else {
+            aggregate = try scanChildrenSequentially(
+                contents,
+                parent: url,
+                depth: depth + 1,
+                exposeChildren: exposeDescendants,
+                options: options,
+                reporter: reporter,
+                cancellation: cancellation
+            )
         }
 
-        let access: FolderAccess = deniedItemCount == 0
+        let access: FolderAccess = aggregate.deniedItemCount == 0
             ? .readable
-            : .partiallyReadable(deniedItemCount: deniedItemCount)
+            : .partiallyReadable(deniedItemCount: aggregate.deniedItemCount)
         let node = Node(
             url: url,
             name: displayName(for: url),
             kind: isPackage ? .package : .directory,
-            logicalSize: logicalSize,
-            allocatedSize: allocatedSize,
+            logicalSize: aggregate.logicalSize,
+            allocatedSize: aggregate.allocatedSize,
             access: access,
-            children: scannedChildren.sorted { lhs, rhs in
-                lhs.size(using: options.sizeMetric) > rhs.size(using: options.sizeMetric)
+            children: aggregate.children.sorted { lhs, rhs in
+                let lhsSize = lhs.size(using: options.sizeMetric)
+                let rhsSize = rhs.size(using: options.sizeMetric)
+                if lhsSize == rhsSize {
+                    return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+                }
+                return lhsSize > rhsSize
             }
         )
-        emit(for: node, parent: parent, depth: depth, countBytes: false, options: options, state: &state, continuation: continuation)
+        reporter.record(node, parent: parent, depth: depth, countBytes: false)
         return node
+    }
+
+    private func scanRootChildren(
+        _ urls: [URL],
+        parent: URL,
+        depth: Int,
+        exposeChildren: Bool,
+        options: ScanOptions,
+        reporter: ScanReporter,
+        cancellation: ScanCancellation
+    ) throws -> ChildScanAggregate {
+        let workQueue = ScanWorkQueue(urls: urls)
+        let accumulator = ChildScanAccumulator(exposesChildren: exposeChildren)
+        let workerCount = min(options.maximumConcurrentMetadataRequests, urls.count)
+
+        DispatchQueue.concurrentPerform(iterations: workerCount) { _ in
+            while !cancellation.isCancelled, let url = workQueue.next() {
+                do {
+                    let child = try scanItem(
+                        at: url,
+                        parent: parent,
+                        depth: depth,
+                        exposeChildren: exposeChildren,
+                        options: options,
+                        reporter: reporter,
+                        cancellation: cancellation
+                    )
+                    accumulator.add(child)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    accumulator.recordDeniedItem()
+                }
+            }
+        }
+
+        try checkCancellation(cancellation)
+        return accumulator.value
+    }
+
+    private func scanChildrenSequentially(
+        _ urls: [URL],
+        parent: URL,
+        depth: Int,
+        exposeChildren: Bool,
+        options: ScanOptions,
+        reporter: ScanReporter,
+        cancellation: ScanCancellation
+    ) throws -> ChildScanAggregate {
+        var aggregate = ChildScanAggregate()
+        for url in urls {
+            try checkCancellation(cancellation)
+            do {
+                let child = try scanItem(
+                    at: url,
+                    parent: parent,
+                    depth: depth,
+                    exposeChildren: exposeChildren,
+                    options: options,
+                    reporter: reporter,
+                    cancellation: cancellation
+                )
+                aggregate.add(child, exposesChildren: exposeChildren)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                aggregate.deniedItemCount += 1
+            }
+        }
+        return aggregate
+    }
+
+    private func checkCancellation(_ cancellation: ScanCancellation) throws {
+        if cancellation.isCancelled || Task.isCancelled {
+            throw CancellationError()
+        }
     }
 
     private func displayName(for url: URL) -> String {
         url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent
     }
+}
 
-    private func emit(
-        for node: Node,
-        parent: URL?,
-        depth: Int,
-        countBytes: Bool,
-        options: ScanOptions,
-        state: inout TraversalState,
-        continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
-    ) {
-        if options.maximumReportedDepth.map({ depth <= $0 }) ?? true {
-            continuation.yield(.discovered(node, parent: parent))
+private final class ScanCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.withLock { cancelled }
+    }
+
+    func cancel() {
+        lock.withLock { cancelled = true }
+    }
+}
+
+private final class ScanWorkQueue: @unchecked Sendable {
+    private let lock = NSLock()
+    private let urls: [URL]
+    private var nextIndex = 0
+
+    init(urls: [URL]) {
+        self.urls = urls
+    }
+
+    func next() -> URL? {
+        lock.withLock {
+            guard nextIndex < urls.count else { return nil }
+            defer { nextIndex += 1 }
+            return urls[nextIndex]
         }
-        state.discoveredItemCount += 1
-        if countBytes {
-            state.logicalBytes += node.logicalSize
-            state.allocatedBytes += node.allocatedSize
-        }
-        if state.discoveredItemCount.isMultiple(of: 256) {
-            emitProgress(state: state, currentURL: node.url, continuation: continuation)
+    }
+}
+
+private final class ChildScanAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private let exposesChildren: Bool
+    private var aggregate = ChildScanAggregate()
+
+    init(exposesChildren: Bool) {
+        self.exposesChildren = exposesChildren
+    }
+
+    func add(_ node: Node) {
+        lock.withLock {
+            aggregate.add(node, exposesChildren: exposesChildren)
         }
     }
 
-    private func emitProgress(
-        state: TraversalState,
-        currentURL: URL,
+    func recordDeniedItem() {
+        lock.withLock {
+            aggregate.deniedItemCount += 1
+        }
+    }
+
+    var value: ChildScanAggregate {
+        lock.withLock { aggregate }
+    }
+}
+
+private final class ScanReporter: @unchecked Sendable {
+    private let lock = NSLock()
+    private let options: ScanOptions
+    private let continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
+    private var state = TraversalState()
+
+    init(
+        options: ScanOptions,
         continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
     ) {
+        self.options = options
+        self.continuation = continuation
+    }
+
+    func record(_ node: Node, parent: URL?, depth: Int, countBytes: Bool) {
+        lock.withLock {
+            if options.maximumReportedDepth.map({ depth <= $0 }) ?? true {
+                continuation.yield(.discovered(node, parent: parent))
+            }
+            state.discoveredItemCount += 1
+            if countBytes {
+                state.logicalBytes += node.logicalSize
+                state.allocatedBytes += node.allocatedSize
+            }
+            if state.discoveredItemCount.isMultiple(of: 256) {
+                emitProgress(currentURL: node.url)
+            }
+        }
+    }
+
+    func emitFinalProgress(currentURL: URL) {
+        lock.withLock {
+            emitProgress(currentURL: currentURL)
+        }
+    }
+
+    private func emitProgress(currentURL: URL) {
         continuation.yield(
             .progress(
                 ScanStatistics(
@@ -254,6 +397,22 @@ private struct TraversalState {
     var discoveredItemCount = 0
     var logicalBytes: Int64 = 0
     var allocatedBytes: Int64 = 0
+}
+
+private struct ChildScanAggregate {
+    var children: [Node] = []
+    var logicalSize: Int64 = 0
+    var allocatedSize: Int64 = 0
+    var deniedItemCount = 0
+
+    mutating func add(_ node: Node, exposesChildren: Bool) {
+        logicalSize += node.logicalSize
+        allocatedSize += node.allocatedSize
+        deniedItemCount += node.deniedItemCount
+        if exposesChildren {
+            children.append(node)
+        }
+    }
 }
 
 private extension Node {
