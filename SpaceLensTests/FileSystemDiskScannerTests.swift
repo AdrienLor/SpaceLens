@@ -95,6 +95,29 @@ final class FileSystemDiskScannerTests: XCTestCase {
         }
     }
 
+    func testEmitsDirectChildrenBeforeRootCompletion() async throws {
+        let fixture = try TemporaryScanFixture()
+        try fixture.writeFile("first.bin", count: 10)
+        try fixture.writeFile("second.bin", count: 20)
+        var directChildren: [String] = []
+        var didComplete = false
+
+        for try await event in FileSystemDiskScanner().scan(fixture.url, options: ScanOptions()) {
+            switch event {
+            case .discovered(let node, let parent) where parent == fixture.url:
+                XCTAssertFalse(didComplete)
+                directChildren.append(node.name)
+            case .completed:
+                didComplete = true
+            case .started, .discovered, .progress:
+                break
+            }
+        }
+
+        XCTAssertEqual(Set(directChildren), ["first.bin", "second.bin"])
+        XCTAssertTrue(didComplete)
+    }
+
     private func completedResult(
         for url: URL,
         options: ScanOptions = ScanOptions()

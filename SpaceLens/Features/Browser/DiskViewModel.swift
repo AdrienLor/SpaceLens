@@ -1,349 +1,292 @@
+import AppKit
+import Combine
 import Foundation
 import SwiftUI
-import Combine
-import AppKit
 
 @MainActor
 final class DiskViewModel: ObservableObject {
     @Published var currentFolder: URL?
     @Published var nodes: [Node] = []
     @Published var breadcrumb: [URL] = []
-    @Published var isScanning: Bool = false
+    @Published var isScanning = false
     @Published var errorMessage: String?
-    /// Nombre d’éléments affichés par défaut à l’ouverture d’un dossier
-    let baseDisplayLimit: Int = 100
-
-    /// Limite courante (peut être augmentée par “Charger plus”)
-    @Published var displayLimit: Int = 100
-
-    /// Cache mémoire : dossier → enfants scannés (à jour)
-    /// Contient TOUS les enfants, triés par taille décroissante
+    @Published var displayLimit = 100
     @Published var cache: [URL: [Node]] = [:]
-
-    /// Token du scan courant pour ignorer les callbacks obsolètes
-    private var activeScanID: UUID?
-
-    /// Historique des VUES RÉUSSIES (derniers affichages valides)
-    private var viewStack: [URL] = []
-    
-    /// dossier initialement choisi
-    private(set) var rootFolder: URL?
-
     @Published var sunburstRoot: Node?
-    @Published var isSunburstRefreshing: Bool = false
+    @Published var isSunburstRefreshing = false
     @Published var heatmapStyle: HeatmapStyle = .fileType
-    
-    private var sunburstRefreshWork: DispatchWorkItem?
+
+    let baseDisplayLimit = 100
+
+    private(set) var rootFolder: URL?
+    private let scanner: any DiskScanning
+    private var scanTask: Task<Void, Never>?
+    private var activeScanID: UUID?
+    private var viewStack: [URL] = []
+    private var scannedRoots: [URL: Node] = [:]
+
+    init(scanner: any DiskScanning = FileSystemDiskScanner()) {
+        self.scanner = scanner
+    }
+
+    deinit {
+        scanTask?.cancel()
+    }
 
     func chooseFolder() {
-            let panel = NSOpenPanel()
-            panel.canChooseDirectories = true
-            panel.canChooseFiles = false
-            panel.allowsMultipleSelection = false
-            if panel.runModal() == .OK, let url = panel.url {
-                rootFolder = url          // on garde la racine
-                viewStack.removeAll()
-                openFolder(url, recordInHistory: true)
-            }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            rootFolder = normalized(url)
+            viewStack.removeAll()
+            openFolder(url, recordInHistory: true)
+        }
+    }
+
+    func resetToRoot() {
+        guard let rootFolder else {
+            clearSelection()
+            return
+        }
+        viewStack.removeAll()
+        openFolder(rootFolder, recordInHistory: true)
+    }
+
+    func openFolder(_ url: URL, recordInHistory: Bool = true) {
+        let target = normalized(url)
+        if rootFolder == nil {
+            rootFolder = target
         }
 
-        /// reset
-        func resetToRoot() {
-            if let root = rootFolder {
-                viewStack.removeAll()
-                openFolder(root, recordInHistory: true)
-            } else {
-                // Si pas de root défini → on remet l’app en état initial
-                currentFolder = nil
-                nodes = []
-                breadcrumb = []
-                errorMessage = nil
-                isScanning = false
-                activeScanID = nil
-            }
-        }
-    
-    /// Ouvrir un dossier. Si recordInHistory == true, on n’ajoute à l’historique QUE en cas de succès.
-    func openFolder(_ url: URL, recordInHistory: Bool = true) {
-        displayLimit = baseDisplayLimit   // reset à chaque ouverture de dossier
-        let target = url.standardizedFileURL.resolvingSymlinksInPath()
+        cancelCurrentScan()
+        displayLimit = baseDisplayLimit
         currentFolder = target
         breadcrumb = makeBreadcrumb(for: target)
         errorMessage = nil
 
-        // 1) Si le cache est disponible, non vide, et complet → affichage immédiat, pas de spinner
-        if let cached = cache[target], !cached.isEmpty,
-           cached.allSatisfy({ !$0.isLoading }) {
-            // Cache complet → affichage immédiat
-            nodes = Array(cached.prefix(displayLimit))
-            isScanning = false
-            activeScanID = nil
-            refreshZeroSizedFoldersIfNeeded(in: target)
+        if let cachedRoot = scannedRoots[target] {
+            present(cachedRoot, for: target)
             if recordInHistory, viewStack.last != target {
                 viewStack.append(target)
             }
             return
-        } else {
-            // Cache absent ou incomplet → relancer un scan
-            cache[target] = []
         }
 
-        // 2) Nouveau scan progressif
+        nodes = []
+        sunburstRoot = nil
+        isScanning = true
+        isSunburstRefreshing = true
+
         let scanID = UUID()
         activeScanID = scanID
-        isScanning = true
+        var immediateChildren: [URL: Node] = [:]
+        var options = ScanOptions()
+        options.maximumDepth = 8
 
-        // 👉 suivi du cycle de scan
-        var pendingLoads = Set<URL>()      // dossiers encore en calcul (spinner par ligne)
-        var enumerationFinished = false    // l’énumération des enfants est terminée
-        var didEmit = false
-        var map: [URL: Node] = [:]         // collecte locale complète
+        scanTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await event in scanner.scan(target, options: options) {
+                    try Task.checkCancellation()
+                    guard activeScanID == scanID, currentFolder == target else { return }
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            DiskScanner.scanFolderProgressive(
-                at: target,
-                onNode: { node in
-                    DispatchQueue.main.async {
-                        guard self.activeScanID == scanID else { return }
-                        if !didEmit { self.nodes = []; didEmit = true }
-
-                        // on garde l’état réel 'isLoading' remonté par le scanner
-                        map[node.url] = node
-                        if node.isDir && node.isLoading {
-                            pendingLoads.insert(node.url)
+                    switch event {
+                    case .started:
+                        break
+                    case .discovered(let scannedNode, let parent):
+                        if parent == target {
+                            let node = makeNode(from: scannedNode)
+                            immediateChildren[node.url] = node
+                            let sorted = sort(Array(immediateChildren.values))
+                            cache[target] = sorted
+                            nodes = Array(sorted.prefix(displayLimit))
                         }
-
-                        // UI : toujours top displayLimit par taille
-                        let sorted = map.values.sorted { $0.size > $1.size }
-                        self.nodes = Array(sorted.prefix(self.displayLimit))
-                        self.scheduleSunburstRefresh(maxDepth: 4)
-                    }
-                },
-                onUpdate: { updated in
-                    DispatchQueue.main.async {
-                        guard self.activeScanID == scanID else { return }
-
-                        map[updated.url] = updated
-                        if updated.isDir && !updated.isLoading {
-                            pendingLoads.remove(updated.url)
-                        }
-
-                        // 🔽 MAJ cache
-                        if var cachedNodes = self.cache[target] {
-                            if let idx = cachedNodes.firstIndex(where: { $0.url == updated.url }) {
-                                cachedNodes[idx] = updated
-                            } else {
-                                cachedNodes.append(updated)
-                            }
-                            cachedNodes.sort { $0.size > $1.size }
-                            self.cache[target] = cachedNodes
-                        }
-
-                        // 🔽 MAJ UI
-                        let sorted = map.values.sorted { $0.size > $1.size }
-                        self.nodes = Array(sorted.prefix(self.displayLimit))
-                        self.scheduleSunburstRefresh(maxDepth: 3)
-
-                        if enumerationFinished && pendingLoads.isEmpty {
-                            self.isScanning = false
+                    case .progress:
+                        break
+                    case .completed(let scannedRoot):
+                        let root = makeNode(from: scannedRoot)
+                        scannedRoots[target] = root
+                        cache[target] = root.children
+                        present(root, for: target)
+                        if recordInHistory, viewStack.last != target {
+                            viewStack.append(target)
                         }
                     }
                 }
-            )
-
-            // Fin d’énumération (mais des calculs par dossier peuvent encore tourner)
-            DispatchQueue.main.async {
-                guard self.activeScanID == scanID else { return }
-                enumerationFinished = true
-
-                if map.isEmpty {
-                    // ⚠️ Échec : rien n’a pu être lu → accès refusé
-                    self.errorMessage = "⚠️ Denied or Empty"
-
-                    // Retour automatique à la dernière vue valide
-                    if let previous = self.viewStack.last {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            self.openFolder(previous, recordInHistory: false)
-                        }
-                    } else {
-                        self.currentFolder = nil
-                        self.nodes = []
-                        self.breadcrumb = []
-                        self.isScanning = false
-                    }
-                } else {
-                    self.errorMessage = nil
-
-                    // Cache complet, tel quel (les onUpdate ont arrêté isLoading au fur et à mesure)
-                    let all = map.values.map { node -> Node in
-                        let n = node
-                        if n.isDir {
-                            // keep n.isLoading as is; it will be updated properly by onUpdate
-                        }
-                        return n
-                    }.sorted { $0.size > $1.size }
-                    self.cache[target] = all
-
-                    // UI : top N
-                    self.nodes = Array(all.prefix(self.displayLimit))
-                    self.scheduleSunburstRefresh(maxDepth: 3)
-
-                    // 🔽 Spinner global : on ne l’éteint que si plus rien en attente
-                    if pendingLoads.isEmpty {
-                        self.isScanning = false
-                    } else {
-                        // on laisse isScanning = true ; les prochains onUpdate couperont le spinner
-                        self.isScanning = true
-                    }
-
-                    if recordInHistory, self.viewStack.last != target {
-                        self.viewStack.append(target)
-                    }
-                }
+            } catch is CancellationError {
+                // A newer navigation request owns the visible state.
+            } catch {
+                guard activeScanID == scanID, currentFolder == target else { return }
+                handleScanFailure(error, target: target)
             }
         }
     }
 
-    /// Charger une hiérarchie complète pour Sunburst (3 niveaux max par défaut)
-    func loadHierarchyForSunburst(maxDepth: Int = 3) {
-        isSunburstRefreshing = true
-        guard let url = currentFolder else { return }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let rootNode = DiskScanner.scanFolderHierarchy(at: url, maxDepth: maxDepth)
-            DispatchQueue.main.async {
-                self.sunburstRoot = rootNode
-                self.isSunburstRefreshing = false
-            }
-        }
-    }
-    
-    func scheduleSunburstRefresh(maxDepth: Int = 3) {
-        guard let url = currentFolder else { return }
-        isSunburstRefreshing = true
-        sunburstRefreshWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            let rootNode = DiskScanner.scanFolderHierarchy(at: url, maxDepth: maxDepth)
-            DispatchQueue.main.async {
-                if self.currentFolder == url {
-                    self.sunburstRoot = rootNode
-                    self.isSunburstRefreshing = false
-                }
-            }
-        }
-        sunburstRefreshWork = work
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.35, execute: work)
+    /// Compatibility entry point for the existing view. The hierarchy already
+    /// comes from the same scan as the list, so this never touches the disk.
+    func loadHierarchyForSunburst(maxDepth _: Int = 3) {
+        refreshSunburstFromCurrentTree()
     }
 
-    /// Revenir au DERNIER affichage valide (pas au parent !)
+    /// Compatibility entry point for depth and view-state changes. Rendering
+    /// depth is handled by SunburstView; no filesystem rescan is scheduled.
+    func scheduleSunburstRefresh(maxDepth _: Int = 3) {
+        refreshSunburstFromCurrentTree()
+    }
+
     func goBackToPreviousView() {
-        // Si la vue actuelle est tout en haut de la pile, on l’enlève
-        if let current = currentFolder, viewStack.last == current {
-            _ = viewStack.popLast()
+        if let currentFolder, viewStack.last == currentFolder {
+            viewStack.removeLast()
         }
-        // On prend la dernière vue valide restante
         guard let previous = viewStack.last else {
-            // plus d’historique → rien à afficher (laisser l’utilisateur re-choisir un dossier)
-            currentFolder = nil
-            nodes = []
-            breadcrumb = []
-            errorMessage = nil
-            isScanning = false
-            activeScanID = nil
+            clearSelection()
             return
         }
-        // Ouvre SANS ré-enregistrer dans l’historique
         openFolder(previous, recordInHistory: false)
     }
 
-    /// Si le cache/affichage contient encore des dossiers à 0 → recalcule leur taille et met à jour UI + cache
-    private func refreshZeroSizedFoldersIfNeeded(in folder: URL) {
-        let pending = nodes.filter { $0.isDir && $0.size == 0 }
-        guard !pending.isEmpty else { return }
+    private func present(_ root: Node, for target: URL) {
+        guard currentFolder == target else { return }
+        let sorted = sort(root.children)
+        nodes = Array(sorted.prefix(displayLimit))
+        cache[target] = sorted
+        sunburstRoot = replacingChildren(of: root, with: sorted)
+        isScanning = false
+        isSunburstRefreshing = false
+        activeScanID = nil
+        scanTask = nil
+    }
 
-        DispatchQueue.global(qos: .utility).async {
-            var updates: [Node] = []
-            for n in pending {
-                let real = self.computeFolderSize(at: n.url)
-                var updated = n
-                updated.size = real
-                updates.append(updated)
-            }
+    private func handleScanFailure(_ error: Error, target: URL) {
+        isScanning = false
+        isSunburstRefreshing = false
+        activeScanID = nil
+        scanTask = nil
+        errorMessage = message(for: error)
 
-            DispatchQueue.main.async {
-                // MAJ UI
-                for up in updates {
-                    if let i = self.nodes.firstIndex(where: { $0.url == up.url }) {
-                        self.nodes[i] = up
-                    }
-                }
-                self.nodes.sort { $0.size > $1.size }
-                if self.nodes.count > self.displayLimit {
-                    self.nodes = Array(self.nodes.prefix(self.displayLimit))
-                }
-
-                // MAJ cache du dossier courant
-                if var cached = self.cache[folder] {
-                    for up in updates {
-                        if let i = cached.firstIndex(where: { $0.url == up.url }) {
-                            cached[i] = up
-                        }
-                    }
-                    cached.sort { $0.size > $1.size }
-                    self.cache[folder] = cached
-                }
-            }
+        if let previous = viewStack.last, previous != target {
+            openFolder(previous, recordInHistory: false)
+        } else {
+            nodes = []
+            sunburstRoot = nil
         }
+    }
+
+    private func message(for error: Error) -> String {
+        switch error {
+        case ScanError.accessDenied:
+            "Access denied"
+        case ScanError.rootNotFound:
+            "Folder not found"
+        case ScanError.rootIsNotDirectory:
+            "The selected item is not a folder"
+        case ScanError.invalidOptions(let message):
+            message
+        case ScanError.metadataUnavailable(_, let description):
+            description
+        default:
+            error.localizedDescription
+        }
+    }
+
+    private func refreshSunburstFromCurrentTree() {
+        guard let currentFolder else { return }
+        if let root = scannedRoots[currentFolder] {
+            sunburstRoot = root
+            isSunburstRefreshing = false
+        } else {
+            isSunburstRefreshing = isScanning
+        }
+    }
+
+    private func makeNode(from scannedNode: ScannedNode) -> Node {
+        Node(
+            url: scannedNode.url,
+            name: scannedNode.name,
+            size: scannedNode.size(using: .allocated),
+            isDir: scannedNode.isDirectoryLike,
+            children: sort(scannedNode.children.map(makeNode(from:))),
+            accessDenied: scannedNode.access == .denied
+        )
+    }
+
+    private func sort(_ nodes: [Node]) -> [Node] {
+        nodes.sorted { lhs, rhs in
+            if lhs.size == rhs.size {
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+            return lhs.size > rhs.size
+        }
+    }
+
+    private func replacingChildren(of node: Node, with children: [Node]) -> Node {
+        var updated = node
+        updated.children = children
+        return updated
+    }
+
+    private func cancelCurrentScan() {
+        scanTask?.cancel()
+        scanTask = nil
+        activeScanID = nil
+    }
+
+    private func clearSelection() {
+        cancelCurrentScan()
+        currentFolder = nil
+        nodes = []
+        breadcrumb = []
+        errorMessage = nil
+        sunburstRoot = nil
+        isScanning = false
+        isSunburstRefreshing = false
+    }
+
+    private func normalized(_ url: URL) -> URL {
+        url.standardizedFileURL.resolvingSymlinksInPath()
     }
 
     private func makeBreadcrumb(for url: URL) -> [URL] {
-        let comps = url.standardizedFileURL.resolvingSymlinksInPath().pathComponents
-        var parts: [URL] = []
-        var cur = URL(fileURLWithPath: "/")
-        parts.append(cur)
-        for c in comps.dropFirst() {
-            cur.appendPathComponent(c)
-            parts.append(cur)
+        let components = normalized(url).pathComponents
+        var breadcrumb: [URL] = []
+        var current = URL(fileURLWithPath: "/")
+        breadcrumb.append(current)
+        for component in components.dropFirst() {
+            current.appendPathComponent(component)
+            breadcrumb.append(current)
         }
-        return parts
-    }
-
-    /// Petit utilitaire local pour avoir la vraie taille d’un dossier
-    nonisolated private func computeFolderSize(at url: URL) -> Int64 {
-        let fm = FileManager.default
-        guard let en = fm.enumerator(at: url,
-                                     includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
-                                     options: [.skipsHiddenFiles]) else { return 0 }
-        var total: Int64 = 0
-        for case let u as URL in en {
-            if let s = (try? fm.attributesOfItem(atPath: u.path)[.size] as? Int64) {
-                total += s
-            }
-        }
-        return total
+        return breadcrumb
     }
 }
 
 extension DiskViewModel {
     var currentFolderNode: Node? {
-        guard let url = currentFolder else { return nil }
-        let children = cache[url] ?? nodes
-        let total: Int64
-        if isScanning || isSunburstRefreshing {
-            total = computeFolderSize(at: url)
-        } else {
-            total = children.map(\.size).reduce(0, +)
+        guard let currentFolder else { return nil }
+        if let root = scannedRoots[currentFolder] {
+            return root
         }
-        let denied = children.allSatisfy { $0.accessDenied } && !children.isEmpty
+        let children = cache[currentFolder] ?? nodes
         return Node(
-            url: url,
-            name: url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent,
-            size: total,
+            url: currentFolder,
+            name: currentFolder.lastPathComponent.isEmpty ? "/" : currentFolder.lastPathComponent,
+            size: children.reduce(0) { $0 + $1.size },
             isDir: true,
             children: children,
-            accessDenied: denied
+            accessDenied: false,
+            isScanning: isScanning
         )
     }
 }
 
-
+private extension ScannedNode {
+    var isDirectoryLike: Bool {
+        switch kind {
+        case .directory, .package:
+            true
+        case .regularFile, .symbolicLink, .other:
+            false
+        }
+    }
+}

@@ -28,6 +28,7 @@ struct FileSystemDiskScanner: DiskScanning {
                     var state = TraversalState()
                     let result = try scanItem(
                         at: normalizedRoot,
+                        parent: nil,
                         depth: 0,
                         exposeChildren: true,
                         options: options,
@@ -63,6 +64,7 @@ struct FileSystemDiskScanner: DiskScanning {
 
     private func scanItem(
         at url: URL,
+        parent: URL?,
         depth: Int,
         exposeChildren: Bool,
         options: ScanOptions,
@@ -100,7 +102,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .readable,
                 children: []
             )
-            emitProgress(for: node, countBytes: false, state: &state, continuation: continuation)
+            emit(for: node, parent: parent, countBytes: false, state: &state, continuation: continuation)
             return node
         }
 
@@ -118,7 +120,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .readable,
                 children: []
             )
-            emitProgress(for: node, countBytes: true, state: &state, continuation: continuation)
+            emit(for: node, parent: parent, countBytes: true, state: &state, continuation: continuation)
             return node
         }
 
@@ -146,7 +148,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 access: .denied,
                 children: []
             )
-            emitProgress(for: denied, countBytes: false, state: &state, continuation: continuation)
+            emit(for: denied, parent: parent, countBytes: false, state: &state, continuation: continuation)
             return denied
         }
 
@@ -160,6 +162,7 @@ struct FileSystemDiskScanner: DiskScanning {
             do {
                 let child = try scanItem(
                     at: childURL,
+                    parent: url,
                     depth: depth + 1,
                     exposeChildren: exposeDescendants,
                     options: options,
@@ -193,7 +196,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 lhs.size(using: options.sizeMetric) > rhs.size(using: options.sizeMetric)
             }
         )
-        emitProgress(for: node, countBytes: false, state: &state, continuation: continuation)
+        emit(for: node, parent: parent, countBytes: false, state: &state, continuation: continuation)
         return node
     }
 
@@ -208,12 +211,14 @@ struct FileSystemDiskScanner: DiskScanning {
         url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent
     }
 
-    private func emitProgress(
+    private func emit(
         for node: ScannedNode,
+        parent: URL?,
         countBytes: Bool,
         state: inout TraversalState,
         continuation: AsyncThrowingStream<ScanEvent, Error>.Continuation
     ) {
+        continuation.yield(.discovered(node, parent: parent))
         state.discoveredItemCount += 1
         if countBytes {
             state.logicalBytes += node.logicalSize

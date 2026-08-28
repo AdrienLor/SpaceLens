@@ -10,6 +10,8 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 
 - Started the repository and scanning-engine refactor.
 - Reorganized application sources by responsibility.
+- Routed the folder list and sunburst through one shared scan result tree.
+- Removed repeated filesystem scans triggered by sunburst refreshes.
 
 ## [1.1] - 2025-09-28
 
