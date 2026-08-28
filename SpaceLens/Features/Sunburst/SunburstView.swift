@@ -2,6 +2,8 @@ import SwiftUI
 import AppKit
 
 struct SunburstView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     private struct OtherSummary {
         let itemCount: Int
         let size: Int64
@@ -72,7 +74,7 @@ struct SunburstView: View {
                                                     if let width = hoverStrokeWidth(for: path) {
                                                         context.stroke(
                                                             path,
-                                                            with: .color(.white.opacity(0.9)),
+                                                            with: .color(hoverColor.opacity(0.9)),
                                                             lineWidth: width
                                                         )
                                                     }
@@ -80,7 +82,7 @@ struct SunburstView: View {
                                                     if let width = hoverStrokeWidth(for: path) {
                                                         context.stroke(
                                                             path,
-                                                            with: .color(.white.opacity(0.45)),
+                                                            with: .color(hoverColor.opacity(0.45)),
                                                             lineWidth: min(width, 1)
                                                         )
                                                     }
@@ -101,7 +103,7 @@ struct SunburstView: View {
                                             if let width = hoverStrokeWidth(for: hoveredPath) {
                                                 context.stroke(
                                                     hoveredPath,
-                                                    with: .color(.white.opacity(0.9)),
+                                                    with: .color(hoverColor.opacity(0.9)),
                                                     lineWidth: width
                                                 )
                                             }
@@ -174,9 +176,13 @@ struct SunburstView: View {
                             Text(tooltip(for: hoveredPayload))
                                 .font(.caption)
                                 .padding(4)
-                                .background(Color.black.opacity(0.7))
-                                .foregroundColor(.white)
+                                .background(tooltipBackground)
+                                .foregroundColor(.primary)
                                 .cornerRadius(6)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color.primary.opacity(0.2), lineWidth: 0.5)
+                                )
                                 .position(
                                     x: min(max(loc.x + 16, 110), chartWidth - 110),
                                     y: min(max(loc.y + 28, 20), geo.size.height - 20)
@@ -384,7 +390,7 @@ struct SunburstView: View {
 
         let color: Color
         if isOther {
-            color = .gray.opacity(0.4)
+            color = colorScheme == .dark ? .gray.opacity(0.7) : .gray.opacity(0.4)
         } else if let node = node {
             let adjustment = 1.0 - min(Double(depth) * 0.03, 0.18)
             color = sunburstColor(for: node, fraction: fraction).opacity(adjustment)
@@ -393,7 +399,13 @@ struct SunburstView: View {
             color = heatmapStyle.color(for: fraction).opacity(adjustment)
         }
         context.fill(path, with: .color(color))
-        context.stroke(path, with: .color(.black.opacity(0.6)), lineWidth: 2)
+        if let width = baseStrokeWidth(for: path) {
+            context.stroke(
+                path,
+                with: .color(separatorColor),
+                lineWidth: width
+            )
+        }
         if let node = node {
             sectorsOut.append((path, .node(node)))
         } else if let otherSummary {
@@ -405,13 +417,23 @@ struct SunburstView: View {
     }
 
     private func sunburstColor(for node: Node, fraction: Double) -> Color {
+        let baseColor: Color
         guard heatmapStyle == .fileType, node.isDir else {
-            return heatmapStyle.color(for: node, fraction: fraction)
+            baseColor = heatmapStyle.color(for: node, fraction: fraction)
+            return colorScheme == .dark
+                ? baseColor.interpolate(to: .white, fraction: 0.1)
+                : baseColor
         }
         guard let representative = dominantLeaf(in: node) else {
-            return heatmapStyle.color(for: node, fraction: fraction)
+            baseColor = heatmapStyle.color(for: node, fraction: fraction)
+            return colorScheme == .dark
+                ? baseColor.interpolate(to: .white, fraction: 0.1)
+                : baseColor
         }
-        return heatmapStyle.color(for: representative, fraction: fraction)
+        baseColor = heatmapStyle.color(for: representative, fraction: fraction)
+        return colorScheme == .dark
+            ? baseColor.interpolate(to: .white, fraction: 0.08)
+            : baseColor
     }
 
     private func dominantLeaf(in node: Node) -> Node? {
@@ -447,6 +469,25 @@ struct SunburstView: View {
     private func hoverOpacity(for path: Path) -> Double {
         let bounds = path.boundingRect
         return min(bounds.width, bounds.height) < 5 ? 0.28 : 0.12
+    }
+
+    private func baseStrokeWidth(for path: Path) -> CGFloat? {
+        guard let hoverWidth = hoverStrokeWidth(for: path) else { return nil }
+        return min(0.8, hoverWidth * 0.5)
+    }
+
+    private var separatorColor: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.42 : 0.28)
+    }
+
+    private var hoverColor: Color {
+        colorScheme == .dark ? .white : .black
+    }
+
+    private var tooltipBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 0.12, green: 0.12, blue: 0.14).opacity(0.96)
+            : Color.white.opacity(0.96)
     }
 
     private func findNode(by id: Node.ID, in node: Node) -> Node? {

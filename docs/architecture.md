@@ -7,6 +7,8 @@ full-circle root ring is omitted because the center already identifies the root.
 Sunburst hit testing uses a small invisible tolerance and prioritizes deeper
 sectors. Hover outlines scale with visible sector thickness and disappear for
 very thin sectors, which are identified using fill contrast alone.
+Palette luminance, separators, hover contrast, and tooltip surfaces adapt to the
+system color scheme while preserving the selected palette's semantics.
 
 File resource identifiers deduplicate allocated bytes when multiple paths refer
 to the same inode. APFS clone candidates are annotated, but their allocated size
