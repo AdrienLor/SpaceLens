@@ -50,3 +50,7 @@ retaining an unbounded whole-disk tree.
 The generic scanner keeps package grouping as its conservative default. The
 SpaceLens browser explicitly requests package descendants so applications such
 as Xcode can be opened and inspected while retaining allocated-size accounting.
+
+Completed root scans use a five-entry least-recently-used cache. Navigating
+through many folders therefore cannot retain an unbounded series of overlapping
+deep trees; evicted folders are scanned again if revisited.

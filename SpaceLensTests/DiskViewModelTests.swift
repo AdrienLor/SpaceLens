@@ -122,6 +122,25 @@ final class DiskViewModelTests: XCTestCase {
         XCTAssertEqual(scanner.requestedRoots, [root])
     }
 
+    func testCompletedScanCacheEvictsLeastRecentlyUsedTree() async {
+        let scanner = ControlledDiskScanner()
+        let viewModel = DiskViewModel(scanner: scanner, cacheCapacity: 3)
+        let roots = (0..<4).map {
+            URL(fileURLWithPath: "/tmp/spacelens-cache-\($0)", isDirectory: true)
+        }
+
+        for root in roots {
+            viewModel.openFolder(root)
+            await waitUntil { scanner.requestedRoots.contains(root) }
+            scanner.complete(root: root, children: [])
+            await waitUntil { !viewModel.isScanning }
+        }
+
+        XCTAssertEqual(viewModel.cachedScanCount, 3)
+        XCTAssertNil(viewModel.cache[roots[0]])
+        XCTAssertNotNil(viewModel.cache[roots[3]])
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

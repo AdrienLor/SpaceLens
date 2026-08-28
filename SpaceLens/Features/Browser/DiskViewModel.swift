@@ -26,9 +26,12 @@ final class DiskViewModel: ObservableObject {
     private var activeScanID: UUID?
     private var viewStack: [URL] = []
     private var scannedRoots: [URL: Node] = [:]
+    private var cacheOrder: [URL] = []
+    private let cacheCapacity: Int
 
-    init(scanner: any DiskScanning = FileSystemDiskScanner()) {
+    init(scanner: any DiskScanning = FileSystemDiskScanner(), cacheCapacity: Int = 5) {
         self.scanner = scanner
+        self.cacheCapacity = max(1, cacheCapacity)
     }
 
     deinit {
@@ -69,6 +72,7 @@ final class DiskViewModel: ObservableObject {
         errorMessage = nil
 
         if let cachedRoot = scannedRoots[target] {
+            touchCachedRoot(target)
             present(cachedRoot, for: target)
             if recordInHistory, viewStack.last != target {
                 viewStack.append(target)
@@ -122,8 +126,7 @@ final class DiskViewModel: ObservableObject {
                         break
                     case .completed(let scannedRoot):
                         let root = sortedTree(scannedRoot)
-                        scannedRoots[target] = root
-                        cache[target] = root.children
+                        storeCachedRoot(root, for: target)
                         present(root, for: target)
                         if recordInHistory, viewStack.last != target {
                             viewStack.append(target)
@@ -261,6 +264,25 @@ final class DiskViewModel: ObservableObject {
         scanTask?.cancel()
         scanTask = nil
         activeScanID = nil
+        if let currentFolder, scannedRoots[currentFolder] == nil {
+            cache[currentFolder] = nil
+        }
+    }
+
+    private func storeCachedRoot(_ root: Node, for target: URL) {
+        scannedRoots[target] = root
+        cache[target] = root.children
+        touchCachedRoot(target)
+        while cacheOrder.count > cacheCapacity {
+            let evicted = cacheOrder.removeFirst()
+            scannedRoots[evicted] = nil
+            cache[evicted] = nil
+        }
+    }
+
+    private func touchCachedRoot(_ target: URL) {
+        cacheOrder.removeAll { $0 == target }
+        cacheOrder.append(target)
     }
 
     private func clearSelection() {
@@ -293,6 +315,8 @@ final class DiskViewModel: ObservableObject {
 }
 
 extension DiskViewModel {
+    var cachedScanCount: Int { scannedRoots.count }
+
     var currentFolderNode: Node? {
         guard let currentFolder else { return nil }
         if let root = scannedRoots[currentFolder] {

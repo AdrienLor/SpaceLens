@@ -20,6 +20,7 @@ The project follows the principles of [Keep a Changelog](https://keepachangelog.
 - Distinguish complete folders from depth-limited and package-boundary nodes.
 - Allow the browser and sunburst to inspect descendants inside macOS packages.
 - Add an instant switch between allocated disk usage and logical file size.
+- Bound completed scan trees with a least-recently-used cache.
 
 ## [1.1] - 2025-09-28
 
