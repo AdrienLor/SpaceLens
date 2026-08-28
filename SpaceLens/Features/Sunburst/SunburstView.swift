@@ -65,14 +65,25 @@ struct SunburstView: View {
                                             for (path, payload) in builtSectors {
                                                 guard case .node(let node) = payload else { continue }
                                                 if node.id == hovered.id {
-                                                    context.fill(path, with: .color(.white.opacity(0.14)))
-                                                    context.stroke(path, with: .color(.white), lineWidth: 2.5)
-                                                } else if isAncestor(node, of: hovered) {
-                                                    context.stroke(
+                                                    context.fill(
                                                         path,
-                                                        with: .color(.white.opacity(0.55)),
-                                                        lineWidth: 1.5
+                                                        with: .color(.white.opacity(hoverOpacity(for: path)))
                                                     )
+                                                    if let width = hoverStrokeWidth(for: path) {
+                                                        context.stroke(
+                                                            path,
+                                                            with: .color(.white.opacity(0.9)),
+                                                            lineWidth: width
+                                                        )
+                                                    }
+                                                } else if isAncestor(node, of: hovered) {
+                                                    if let width = hoverStrokeWidth(for: path) {
+                                                        context.stroke(
+                                                            path,
+                                                            with: .color(.white.opacity(0.45)),
+                                                            lineWidth: min(width, 1)
+                                                        )
+                                                    }
                                                 }
                                             }
                                         } else if case .other(let hovered) = hoveredPayload,
@@ -83,8 +94,17 @@ struct SunburstView: View {
                                                       }
                                                       return false
                                                   })?.0 {
-                                            context.fill(hoveredPath, with: .color(.white.opacity(0.14)))
-                                            context.stroke(hoveredPath, with: .color(.white), lineWidth: 2.5)
+                                            context.fill(
+                                                hoveredPath,
+                                                with: .color(.white.opacity(hoverOpacity(for: hoveredPath)))
+                                            )
+                                            if let width = hoverStrokeWidth(for: hoveredPath) {
+                                                context.stroke(
+                                                    hoveredPath,
+                                                    with: .color(.white.opacity(0.9)),
+                                                    lineWidth: width
+                                                )
+                                            }
                                         }
 
                                         let configuration = "\(root.id.path)|\(maxDepth)|\(sizeMetric.rawValue)|\(heatmapStyle.rawValue)"
@@ -104,7 +124,7 @@ struct SunburstView: View {
                         .onContinuousHover { phase in
                             switch phase {
                             case .active(let location):
-                                if let match = sectors.first(where: { $0.0.contains(location) })?.1 {
+                                if let match = hitPayload(at: location) {
                                     hoveredPayload = match
                                     hoverLocation = location
                                     if case .node(let node) = match, !node.children.isEmpty {
@@ -406,6 +426,27 @@ struct SunburstView: View {
         let candidateComponents = candidate.url.standardizedFileURL.pathComponents
         let nodeComponents = node.url.standardizedFileURL.pathComponents
         return candidate.id != node.id && nodeComponents.starts(with: candidateComponents)
+    }
+
+    private func hitPayload(at location: CGPoint) -> SectorPayload? {
+        if let exact = sectors.reversed().first(where: { $0.0.contains(location) }) {
+            return exact.1
+        }
+        return sectors.reversed().first(where: {
+            $0.0.strokedPath(StrokeStyle(lineWidth: 5)).contains(location)
+        })?.1
+    }
+
+    private func hoverStrokeWidth(for path: Path) -> CGFloat? {
+        let bounds = path.boundingRect
+        let narrowestDimension = min(bounds.width, bounds.height)
+        guard narrowestDimension >= 5 else { return nil }
+        return min(1.75, max(0.65, narrowestDimension * 0.08))
+    }
+
+    private func hoverOpacity(for path: Path) -> Double {
+        let bounds = path.boundingRect
+        return min(bounds.width, bounds.height) < 5 ? 0.28 : 0.12
     }
 
     private func findNode(by id: Node.ID, in node: Node) -> Node? {

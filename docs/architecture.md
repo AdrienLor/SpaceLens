@@ -4,6 +4,9 @@ The sunburst Canvas redraws only when its data, geometry, metric, depth, or
 palette changes. File-type colors for folders reflect their largest descendant,
 grouped small sectors remain hoverable with aggregate details, and the redundant
 full-circle root ring is omitted because the center already identifies the root.
+Sunburst hit testing uses a small invisible tolerance and prioritizes deeper
+sectors. Hover outlines scale with visible sector thickness and disappear for
+very thin sectors, which are identified using fill contrast alone.
 
 File resource identifiers deduplicate allocated bytes when multiple paths refer
 to the same inode. APFS clone candidates are annotated, but their allocated size

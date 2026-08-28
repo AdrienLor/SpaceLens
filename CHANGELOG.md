@@ -1,6 +1,7 @@
 # Changelog
 
 - Improve sunburst heatmap clarity, hierarchy highlighting, inspectability, and idle rendering cost.
+- Make thin sunburst sectors easier to target without hiding them under hover outlines.
 - Count hard-linked file allocation once and identify possible APFS clone sharing in the list.
 - Avoid rebuilding and sorting the complete node tree a second time when a scan completes.
 - Reuse immutable filesystem resource-key sets across metadata reads.
