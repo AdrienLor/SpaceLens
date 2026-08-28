@@ -19,4 +19,9 @@ SpaceLens is organized by responsibility while remaining a single macOS applicat
 
 ## Refactor direction
 
-The legacy scanner and view model remain operational while a cancellable scanner contract is introduced. The new scanner will be integrated only after fixture-based characterization tests cover the baseline scenarios in `docs/legacy-baseline.md`.
+`FileSystemDiskScanner` is the single filesystem traversal implementation. It
+publishes a cancellable event stream consumed by `DiskViewModel`, which derives
+both the folder list and the sunburst hierarchy from the same result tree.
+
+The next consolidation step is to remove the remaining presentation `Node`
+model in favor of one scan-result model with explicit UI projections.
