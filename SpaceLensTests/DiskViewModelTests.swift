@@ -76,6 +76,17 @@ final class DiskViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.scanningNodeURLs.contains(child.url))
     }
 
+    func testBrowserRequestsPackageDescendants() async {
+        let scanner = ControlledDiskScanner()
+        let viewModel = DiskViewModel(scanner: scanner)
+        let root = URL(fileURLWithPath: "/tmp/spacelens-package-options", isDirectory: true)
+
+        viewModel.openFolder(root)
+        await waitUntil { scanner.requestedOptions[root] != nil }
+
+        XCTAssertEqual(scanner.requestedOptions[root]?.packageTraversal, .descendants)
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,
@@ -104,6 +115,7 @@ private final class ControlledDiskScanner: DiskScanning, @unchecked Sendable {
     private let lock = NSLock()
     private var continuations: [URL: AsyncThrowingStream<ScanEvent, Error>.Continuation] = [:]
     private var requests: [URL] = []
+    private var optionsByRoot: [URL: ScanOptions] = [:]
     private var cancellations: Set<URL> = []
 
     var requestedRoots: [URL] {
@@ -114,13 +126,18 @@ private final class ControlledDiskScanner: DiskScanning, @unchecked Sendable {
         lock.withLock { cancellations }
     }
 
+    var requestedOptions: [URL: ScanOptions] {
+        lock.withLock { optionsByRoot }
+    }
+
     func scan(
         _ root: URL,
-        options _: ScanOptions
+        options: ScanOptions
     ) -> AsyncThrowingStream<ScanEvent, Error> {
         AsyncThrowingStream { continuation in
             lock.withLock {
                 requests.append(root)
+                optionsByRoot[root] = options
                 continuations[root] = continuation
             }
             continuation.onTermination = { [weak self] termination in

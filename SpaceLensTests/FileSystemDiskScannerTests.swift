@@ -57,6 +57,26 @@ final class FileSystemDiskScannerTests: XCTestCase {
         XCTAssertEqual(result.logicalSize, 512)
     }
 
+    func testPackageCanExposeDescendantsWithoutChangingItsTotal() async throws {
+        let fixture = try TemporaryScanFixture()
+        _ = try fixture.createDirectory("Example.app/Contents/Resources")
+        try fixture.writeFile("Example.app/Contents/Resources/payload.bin", count: 512)
+        let packageURL = fixture.url.appendingPathComponent("Example.app", isDirectory: true)
+        var groupedOptions = ScanOptions()
+        groupedOptions.packageTraversal = .singleNode
+        var expandedOptions = ScanOptions()
+        expandedOptions.packageTraversal = .descendants
+
+        let grouped = try await completedResult(for: packageURL, options: groupedOptions)
+        let expanded = try await completedResult(for: packageURL, options: expandedOptions)
+
+        XCTAssertEqual(grouped.logicalSize, expanded.logicalSize)
+        XCTAssertTrue(grouped.children.isEmpty)
+        XCTAssertEqual(grouped.childrenState, .packageBoundary)
+        XCTAssertFalse(expanded.children.isEmpty)
+        XCTAssertEqual(expanded.childrenState, .complete)
+    }
+
     func testDepthLimitDoesNotChangeRootTotals() async throws {
         let fixture = try TemporaryScanFixture()
         _ = try fixture.createDirectory("one/two/three")

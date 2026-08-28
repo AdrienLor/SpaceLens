@@ -87,6 +87,7 @@ final class DiskViewModel: ObservableObject {
         var options = ScanOptions()
         options.maximumDepth = 8
         options.maximumReportedDepth = 1
+        options.packageTraversal = .descendants
 
         scanTask = Task { [weak self] in
             guard let self else { return }

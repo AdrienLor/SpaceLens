@@ -3,6 +3,26 @@ import XCTest
 @testable import SpaceLens
 
 final class ScannerPerformanceTests: XCTestCase {
+    func testRealPathAccounting() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SPACELENS_BENCHMARK_PATH"] else {
+            throw XCTSkip("Set SPACELENS_BENCHMARK_PATH to scan a real folder")
+        }
+        let url = URL(fileURLWithPath: path, isDirectory: true)
+        var completedRoot: Node?
+
+        for try await event in FileSystemDiskScanner().scan(url, options: ScanOptions()) {
+            if case .completed(let root) = event {
+                completedRoot = root
+            }
+        }
+
+        let root = try XCTUnwrap(completedRoot)
+        print(
+            "SPACELENS_REAL_PATH path=\(path) logical=\(root.logicalSize) "
+                + "allocated=\(root.allocatedSize) access=\(root.access)"
+        )
+    }
+
     func testSyntheticTreeThroughput() async throws {
         guard ProcessInfo.processInfo.environment["SPACELENS_BENCHMARK"] == "1" else {
             throw XCTSkip("Set SPACELENS_BENCHMARK=1 to run scanner benchmarks")

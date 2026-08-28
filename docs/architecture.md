@@ -46,3 +46,7 @@ pending sizes separately from the immutable `Node` model.
 tree leaf caused by the visualization depth limit or package grouping. Opening
 such a folder starts a new root scan, making its next levels available without
 retaining an unbounded whole-disk tree.
+
+The generic scanner keeps package grouping as its conservative default. The
+SpaceLens browser explicitly requests package descendants so applications such
+as Xcode can be opened and inspected while retaining allocated-size accounting.
