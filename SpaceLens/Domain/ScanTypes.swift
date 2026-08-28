@@ -40,6 +40,11 @@ enum NodeChildrenState: Sendable, Equatable {
     case packageBoundary
 }
 
+struct StorageSharing: Sendable, Equatable {
+    var isDuplicateHardLink = false
+    var mayShareAPFSBlocks = false
+}
+
 struct Node: Identifiable, Sendable, Equatable {
     var id: URL { url }
 
@@ -51,6 +56,7 @@ struct Node: Identifiable, Sendable, Equatable {
     let access: FolderAccess
     let children: [Node]
     var childrenState: NodeChildrenState = .complete
+    var storageSharing = StorageSharing()
 
     var size: Int64 { allocatedSize }
 

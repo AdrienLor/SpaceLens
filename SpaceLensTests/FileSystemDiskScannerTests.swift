@@ -57,6 +57,26 @@ final class FileSystemDiskScannerTests: XCTestCase {
         XCTAssertEqual(result.logicalSize, 512)
     }
 
+    func testHardLinksShareOneAllocatedSizeContribution() async throws {
+        let fixture = try TemporaryScanFixture()
+        try fixture.writeFile("original.bin", count: 16_384)
+        try FileManager.default.linkItem(
+            at: fixture.url.appendingPathComponent("original.bin"),
+            to: fixture.url.appendingPathComponent("linked.bin")
+        )
+
+        let result = try await completedResult(for: fixture.url)
+        let duplicateNodes = result.children.filter(\.storageSharing.isDuplicateHardLink)
+
+        XCTAssertEqual(result.logicalSize, 32_768)
+        XCTAssertEqual(duplicateNodes.count, 1)
+        XCTAssertEqual(duplicateNodes.first?.allocatedSize, 0)
+        XCTAssertEqual(
+            result.allocatedSize,
+            result.children.map(\.allocatedSize).max()
+        )
+    }
+
     func testPackageCanExposeDescendantsWithoutChangingItsTotal() async throws {
         let fixture = try TemporaryScanFixture()
         _ = try fixture.createDirectory("Example.app/Contents/Resources")

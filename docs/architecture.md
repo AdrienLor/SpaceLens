@@ -1,5 +1,10 @@
 # Architecture
 
+File resource identifiers deduplicate allocated bytes when multiple paths refer
+to the same inode. APFS clone candidates are annotated, but their allocated size
+is not reduced because the public API only says blocks may be shared; it does
+not report how many remain shared.
+
 Completed scanner trees are already ordered for the requested size metric. The
 browser stores them directly and only rebuilds their ordering when the user
 changes metrics, avoiding a full duplicate-tree allocation after every scan.

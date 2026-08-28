@@ -29,6 +29,15 @@ struct NodeRowView: View {
                 Text(node.name)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                if node.storageSharing.isDuplicateHardLink {
+                    Image(systemName: "link")
+                        .foregroundColor(.secondary)
+                        .help("Hard link: its on-disk blocks are counted by another path.")
+                } else if node.storageSharing.mayShareAPFSBlocks {
+                    Image(systemName: "square.on.square")
+                        .foregroundColor(.secondary)
+                        .help("APFS clone: some on-disk blocks may be shared with another file.")
+                }
                 if !isScanning {
                     switch node.childrenState {
                     case .complete:

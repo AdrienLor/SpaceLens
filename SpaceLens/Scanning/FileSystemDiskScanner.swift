@@ -9,7 +9,9 @@ struct FileSystemDiskScanner: DiskScanning {
         .isSymbolicLinkKey,
         .fileSizeKey,
         .fileAllocatedSizeKey,
-        .totalFileAllocatedSizeKey
+        .totalFileAllocatedSizeKey,
+        .fileResourceIdentifierKey,
+        .mayShareFileContentKey
     ]
     private let resourceKeySet: Set<URLResourceKey> = [
         .isDirectoryKey,
@@ -18,7 +20,9 @@ struct FileSystemDiskScanner: DiskScanning {
         .isSymbolicLinkKey,
         .fileSizeKey,
         .fileAllocatedSizeKey,
-        .totalFileAllocatedSizeKey
+        .totalFileAllocatedSizeKey,
+        .fileResourceIdentifierKey,
+        .mayShareFileContentKey
     ]
     private let directoryListingKeySet: Set<URLResourceKey> = [
         .isDirectoryKey,
@@ -48,6 +52,7 @@ struct FileSystemDiskScanner: DiskScanning {
 
                     continuation.yield(.started(root: normalizedRoot))
                     let reporter = ScanReporter(options: options, continuation: continuation)
+                    let fileIdentityTracker = FileIdentityTracker()
                     let result = try scanItem(
                         at: normalizedRoot,
                         parent: nil,
@@ -55,6 +60,7 @@ struct FileSystemDiskScanner: DiskScanning {
                         exposeChildren: true,
                         options: options,
                         reporter: reporter,
+                        fileIdentityTracker: fileIdentityTracker,
                         cancellation: cancellation
                     )
                     try checkCancellation(cancellation)
@@ -96,6 +102,7 @@ struct FileSystemDiskScanner: DiskScanning {
         exposeChildren: Bool,
         options: ScanOptions,
         reporter: ScanReporter,
+        fileIdentityTracker: FileIdentityTracker,
         cancellation: ScanCancellation
     ) throws -> Node {
         try checkCancellation(cancellation)
@@ -128,17 +135,24 @@ struct FileSystemDiskScanner: DiskScanning {
 
         guard values.isDirectory == true else {
             let logicalSize = Int64(values.fileSize ?? 0)
-            let allocatedSize = Int64(
+            let reportedAllocatedSize = Int64(
                 values.totalFileAllocatedSize ?? values.fileAllocatedSize ?? values.fileSize ?? 0
+            )
+            let isDuplicateHardLink = !fileIdentityTracker.claim(
+                values.fileResourceIdentifier
             )
             let node = Node(
                 url: url,
                 name: displayName(for: url),
                 kind: values.isRegularFile == true ? .regularFile : .other,
                 logicalSize: logicalSize,
-                allocatedSize: allocatedSize,
+                allocatedSize: isDuplicateHardLink ? 0 : reportedAllocatedSize,
                 access: .readable,
-                children: []
+                children: [],
+                storageSharing: StorageSharing(
+                    isDuplicateHardLink: isDuplicateHardLink,
+                    mayShareAPFSBlocks: values.mayShareFileContent == true
+                )
             )
             reporter.record(node, parent: parent, depth: depth, countBytes: true)
             return node
@@ -185,6 +199,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 exposeChildren: exposeDescendants,
                 options: options,
                 reporter: reporter,
+                fileIdentityTracker: fileIdentityTracker,
                 cancellation: cancellation
             )
         } else {
@@ -195,6 +210,7 @@ struct FileSystemDiskScanner: DiskScanning {
                 exposeChildren: exposeDescendants,
                 options: options,
                 reporter: reporter,
+                fileIdentityTracker: fileIdentityTracker,
                 cancellation: cancellation
             )
         }
@@ -263,6 +279,7 @@ struct FileSystemDiskScanner: DiskScanning {
         exposeChildren: Bool,
         options: ScanOptions,
         reporter: ScanReporter,
+        fileIdentityTracker: FileIdentityTracker,
         cancellation: ScanCancellation
     ) throws -> ChildScanAggregate {
         let workQueue = ScanWorkQueue(urls: urls)
@@ -279,6 +296,7 @@ struct FileSystemDiskScanner: DiskScanning {
                         exposeChildren: exposeChildren,
                         options: options,
                         reporter: reporter,
+                        fileIdentityTracker: fileIdentityTracker,
                         cancellation: cancellation
                     )
                     accumulator.add(child)
@@ -301,6 +319,7 @@ struct FileSystemDiskScanner: DiskScanning {
         exposeChildren: Bool,
         options: ScanOptions,
         reporter: ScanReporter,
+        fileIdentityTracker: FileIdentityTracker,
         cancellation: ScanCancellation
     ) throws -> ChildScanAggregate {
         var aggregate = ChildScanAggregate()
@@ -314,6 +333,7 @@ struct FileSystemDiskScanner: DiskScanning {
                     exposeChildren: exposeChildren,
                     options: options,
                     reporter: reporter,
+                    fileIdentityTracker: fileIdentityTracker,
                     cancellation: cancellation
                 )
                 aggregate.add(child, exposesChildren: exposeChildren)
@@ -334,6 +354,16 @@ struct FileSystemDiskScanner: DiskScanning {
 
     private func displayName(for url: URL) -> String {
         url.lastPathComponent.isEmpty ? "/" : url.lastPathComponent
+    }
+}
+
+private final class FileIdentityTracker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var claimedIdentifiers: Set<AnyHashable> = []
+
+    func claim(_ identifier: Any?) -> Bool {
+        guard let identifier = identifier as? AnyHashable else { return true }
+        return lock.withLock { claimedIdentifiers.insert(identifier).inserted }
     }
 }
 
