@@ -2,6 +2,16 @@ import SwiftUI
 import AppKit
 
 struct SunburstView: View {
+    private struct OtherSummary {
+        let itemCount: Int
+        let size: Int64
+    }
+
+    private enum SectorPayload {
+        case node(Node)
+        case other(OtherSummary)
+    }
+
     let root: Node
     let heatmapStyle: HeatmapStyle
     let sizeMetric: FileSizeMetric
@@ -11,11 +21,12 @@ struct SunburstView: View {
     let isRefreshing: Bool
 
     @State private var displayLimit: Int = 50
-    @State private var hoveredNode: Node? = nil
+    @State private var hoveredPayload: SectorPayload?
     @State private var hoverLocation: CGPoint? = nil
-    @State private var sectors: [(Path, Node)] = []
+    @State private var sectors: [(Path, SectorPayload)] = []
+    @State private var sectorCanvasSize: CGSize = .zero
+    @State private var sectorConfiguration = ""
     @State private var pressedNode: Node? = nil
-    @State private var buildProgress: Double = 1.0
 
     var body: some View {
         ZStack {
@@ -29,13 +40,12 @@ struct SunburstView: View {
                 HStack(spacing: 0) {
                     ZStack {
                         ZStack {
-                            TimelineView(.animation) { _ in
-                                Canvas(
+                            Canvas(
                                     opaque: false,
                                     colorMode: .nonLinear,
-                                    rendersAsynchronously: true,
+                                    rendersAsynchronously: false,
                                     renderer: { context, size in
-                                        var builtSectors: [(Path, Node)] = []
+                                        var builtSectors: [(Path, SectorPayload)] = []
                                         let totalRadius = min(chartWidth, geo.size.height) / 2.0 * 0.95
                                         let center = CGPoint(x: chartWidth / 2, y: geo.size.height / 2)
                                         let centerHole = totalRadius * 0.2
@@ -51,56 +61,55 @@ struct SunburstView: View {
                                                   maxDepth: maxDepth,
                                                   sectorsOut: &builtSectors)
 
-                                        if let hovered = hoveredNode,
-                                           let hoveredPath = builtSectors.first(where: { $0.1.id == hovered.id })?.0,
-                                           !hovered.children.isEmpty {
+                                        if case .node(let hovered) = hoveredPayload,
+                                           let hoveredPath = builtSectors.first(where: {
+                                               if case .node(let node) = $0.1 { return node.id == hovered.id }
+                                               return false
+                                           })?.0 {
                                             context.stroke(hoveredPath, with: .color(.white), lineWidth: 2)
                                         }
 
-                                        DispatchQueue.main.async {
-                                            self.sectors = builtSectors
+                                        let configuration = "\(root.id.path)|\(maxDepth)|\(sizeMetric.rawValue)|\(heatmapStyle.rawValue)"
+                                        if sectorCanvasSize != size || sectorConfiguration != configuration {
+                                            DispatchQueue.main.async {
+                                                self.sectors = builtSectors
+                                                self.sectorCanvasSize = size
+                                                self.sectorConfiguration = configuration
+                                            }
                                         }
                                     }
                                 )
                                 .id(root.id)
                                 .transition(.scale(scale: 0.9).combined(with: .opacity))
                                 .animation(.easeInOut(duration: 0.3), value: root.id)
-                                .animation(.easeInOut(duration: 0.15), value: hoveredNode?.id)
-                            }
-                        }
-                        .onChange(of: root.id) {
-                            buildProgress = 0.0
-                            withAnimation(.easeOut(duration: 0.8)) {
-                                buildProgress = 1.0
-                            }
                         }
                         .onContinuousHover { phase in
                             switch phase {
                             case .active(let location):
                                 if let match = sectors.first(where: { $0.0.contains(location) })?.1 {
-                                    hoveredNode = match
+                                    hoveredPayload = match
                                     hoverLocation = location
-                                    if !match.children.isEmpty {
-                                        NSCursor.pointingHand.push()
+                                    if case .node(let node) = match, !node.children.isEmpty {
+                                        NSCursor.pointingHand.set()
                                     } else {
-                                        NSCursor.arrow.push()
+                                        NSCursor.arrow.set()
                                     }
                                 } else {
-                                    hoveredNode = nil
+                                    hoveredPayload = nil
                                     hoverLocation = nil
-                                    NSCursor.arrow.push()
+                                    NSCursor.arrow.set()
                                 }
                             case .ended:
-                                hoveredNode = nil
+                                hoveredPayload = nil
                                 hoverLocation = nil
-                                NSCursor.arrow.push()
+                                NSCursor.arrow.set()
                             }
                         }
                         .onDisappear {
-                            NSCursor.arrow.push()
+                            NSCursor.arrow.set()
                         }
                         .onTapGesture {
-                            if let node = hoveredNode, !node.children.isEmpty {
+                            if case .node(let node) = hoveredPayload, !node.children.isEmpty {
                                 pressedNode = node
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                     pressedNode = nil
@@ -110,7 +119,7 @@ struct SunburstView: View {
                         }
                         .contentShape(Rectangle())
                         .contextMenu {
-                            if let hovered = hoveredNode {
+                            if case .node(let hovered) = hoveredPayload {
                                 Button("Open in Finder") {
                                     NSWorkspace.shared.activateFileViewerSelecting([hovered.url])
                                 }
@@ -123,8 +132,8 @@ struct SunburstView: View {
                                     .disabled(true)
                             }
                         }
-                        if let hovered = hoveredNode, let loc = hoverLocation {
-                            Text(tooltip(for: hovered))
+                        if let hoveredPayload, let loc = hoverLocation {
+                            Text(tooltip(for: hoveredPayload))
                                 .font(.caption)
                                 .padding(4)
                                 .background(Color.black.opacity(0.7))
@@ -187,15 +196,26 @@ struct SunburstView: View {
         }
     }
 
-    private func tooltip(for node: Node) -> String {
+    private func tooltip(for payload: SectorPayload) -> String {
+        guard case .node(let node) = payload else {
+            if case .other(let summary) = payload {
+                let size = ByteCountFormatter.string(fromByteCount: summary.size, countStyle: .file)
+                return "Other – \(summary.itemCount) small items – \(size)"
+            }
+            return "Other"
+        }
         let size = ByteCountFormatter.string(fromByteCount: node.size(using: sizeMetric), countStyle: .file)
+        let rootSize = root.size(using: sizeMetric)
+        let percentage = rootSize > 0
+            ? String(format: "%.1f%%", Double(node.size(using: sizeMetric)) / Double(rootSize) * 100)
+            : "0%"
         switch node.childrenState {
         case .complete:
-            return "\(node.name) – \(size)"
+            return "\(node.name) – \(size) – \(percentage) of root"
         case .depthLimited:
-            return "\(node.name) – \(size) – deeper contents not loaded"
+            return "\(node.name) – \(size) – \(percentage) of root – deeper contents not loaded"
         case .packageBoundary:
-            return "\(node.name) – \(size) – package contents grouped"
+            return "\(node.name) – \(size) – \(percentage) of root – package contents grouped"
         }
     }
 
@@ -208,7 +228,7 @@ struct SunburstView: View {
                            endAngle: Angle,
                            depth: Int,
                            maxDepth: Int,
-                           sectorsOut: inout [(Path, Node)]) {
+                           sectorsOut: inout [(Path, SectorPayload)]) {
         guard depth < maxDepth else { return }
         let totalSize = nodes.reduce(0) { $0 + $1.size(using: sizeMetric) }
         guard totalSize > 0 else { return }
@@ -281,6 +301,7 @@ struct SunburstView: View {
                     startAngle: currentAngle,
                     endAngle: nextAngle,
                     isOther: true,
+                    otherSummary: OtherSummary(itemCount: smallNodes.count, size: smallTotal),
                     depth: depth,
                     sectorsOut: &sectorsOut)
 
@@ -297,16 +318,15 @@ struct SunburstView: View {
                          startAngle: Angle,
                          endAngle: Angle,
                          isOther: Bool = false,
+                         otherSummary: OtherSummary? = nil,
                          depth: Int,
-                         sectorsOut: inout [(Path, Node)]) {
+                         sectorsOut: inout [(Path, SectorPayload)]) {
         let gap: Double = 1.5
         let adjustedStart = startAngle + .degrees(gap / 2)
         let adjustedEnd = endAngle - .degrees(gap / 2)
         guard adjustedEnd > adjustedStart else { return }
 
-        let sweepDegreesFull = adjustedEnd.degrees - adjustedStart.degrees
-        let sweepDegrees = sweepDegreesFull * buildProgress
-        let animatedEnd = adjustedStart + .degrees(sweepDegrees)
+        let animatedEnd = adjustedEnd
 
         var path = Path()
         path.addArc(center: center,
@@ -325,30 +345,40 @@ struct SunburstView: View {
         if isOther {
             color = .gray.opacity(0.4)
         } else if let node = node {
-            if case .fileType = heatmapStyle {
-                // In fileType mode, only darken folders (to preserve color integrity of files)
-                if node.url.hasDirectoryPath {
-                    let adjustment = 1.0 - Double(depth) * 0.08
-                    color = heatmapStyle.color(for: node, fraction: fraction).opacity(adjustment)
-                } else {
-                    color = heatmapStyle.color(for: node, fraction: fraction)
-                }
-            } else {
-                let adjustment = 1.0 - Double(depth) * 0.08
-                color = heatmapStyle.color(for: node, fraction: fraction).opacity(adjustment)
-            }
+            let adjustment = 1.0 - min(Double(depth) * 0.03, 0.18)
+            color = sunburstColor(for: node, fraction: fraction).opacity(adjustment)
         } else {
-            let adjustment = 1.0 - Double(depth) * 0.08
+            let adjustment = 1.0 - min(Double(depth) * 0.03, 0.18)
             color = heatmapStyle.color(for: fraction).opacity(adjustment)
         }
         context.fill(path, with: .color(color))
         context.stroke(path, with: .color(.black.opacity(0.6)), lineWidth: 2)
         if let node = node {
-            sectorsOut.append((path, node))
+            sectorsOut.append((path, .node(node)))
+        } else if let otherSummary {
+            sectorsOut.append((path, .other(otherSummary)))
         }
         if let node = node, node.id == pressedNode?.id {
             context.fill(path, with: .color(.white.opacity(0.3)))
         }
+    }
+
+    private func sunburstColor(for node: Node, fraction: Double) -> Color {
+        guard heatmapStyle == .fileType, node.isDir else {
+            return heatmapStyle.color(for: node, fraction: fraction)
+        }
+        guard let representative = dominantLeaf(in: node) else {
+            return heatmapStyle.color(for: node, fraction: fraction)
+        }
+        return heatmapStyle.color(for: representative, fraction: fraction)
+    }
+
+    private func dominantLeaf(in node: Node) -> Node? {
+        guard node.isDir else { return node }
+        guard let largest = node.children.max(by: {
+            $0.size(using: sizeMetric) < $1.size(using: sizeMetric)
+        }) else { return nil }
+        return dominantLeaf(in: largest)
     }
 
     private func findNode(by id: Node.ID, in node: Node) -> Node? {

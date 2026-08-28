@@ -314,7 +314,14 @@ struct ContentView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 20) {
                             // Group 1: Media
                             HStack(spacing: 12) {
-                                HStack(spacing: 6) { Circle().fill(Color.blue.opacity(0.6)).frame(width: 10, height: 10); Text("Folders") }
+                                if viewMode == "sunburst" {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "folder.fill").foregroundColor(.secondary)
+                                        Text("Folders use dominant content color")
+                                    }
+                                } else {
+                                    HStack(spacing: 6) { Circle().fill(Color.blue.opacity(0.6)).frame(width: 10, height: 10); Text("Folders") }
+                                }
                                 HStack(spacing: 6) { Circle().fill(Color(red: 0.0, green: 0.7, blue: 0.8)).frame(width: 10, height: 10); Text("Images") }
                                 HStack(spacing: 6) { Circle().fill(Color(red: 0.6, green: 0.2, blue: 0.7)).frame(width: 10, height: 10); Text("Videos") }
                                 HStack(spacing: 6) { Circle().fill(Color.orange.opacity(0.9)).frame(width: 10, height: 10); Text("Audio") }
@@ -361,7 +368,9 @@ struct ContentView: View {
                         .frame(height: 12)
                         .cornerRadius(4)
                         
-                        Text(" ← smaller  |  larger → ")
+                        Text(viewMode == "sunburst"
+                             ? " ← smaller  |  larger within parent → "
+                             : " ← smaller  |  larger → ")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .padding(.leading, 8)

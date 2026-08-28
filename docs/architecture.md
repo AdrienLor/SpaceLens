@@ -1,5 +1,9 @@
 # Architecture
 
+The sunburst Canvas redraws only when its data, geometry, metric, depth, or
+palette changes. File-type colors for folders reflect their largest descendant,
+and grouped small sectors remain hoverable with aggregate details.
+
 File resource identifiers deduplicate allocated bytes when multiple paths refer
 to the same inode. APFS clone candidates are annotated, but their allocated size
 is not reduced because the public API only says blocks may be shared; it does
