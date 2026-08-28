@@ -11,6 +11,19 @@ struct FileSystemDiskScanner: DiskScanning {
         .fileAllocatedSizeKey,
         .totalFileAllocatedSizeKey
     ]
+    private let resourceKeySet: Set<URLResourceKey> = [
+        .isDirectoryKey,
+        .isRegularFileKey,
+        .isPackageKey,
+        .isSymbolicLinkKey,
+        .fileSizeKey,
+        .fileAllocatedSizeKey,
+        .totalFileAllocatedSizeKey
+    ]
+    private let directoryListingKeySet: Set<URLResourceKey> = [
+        .isDirectoryKey,
+        .isPackageKey
+    ]
 
     func scan(
         _ root: URL,
@@ -89,7 +102,7 @@ struct FileSystemDiskScanner: DiskScanning {
 
         let values: URLResourceValues
         do {
-            values = try url.resourceValues(forKeys: Set(resourceKeys))
+            values = try url.resourceValues(forKeys: resourceKeySet)
         } catch {
             throw ScanError.metadataUnavailable(url, description: error.localizedDescription)
         }
@@ -224,7 +237,7 @@ struct FileSystemDiskScanner: DiskScanning {
         reporter: ScanReporter
     ) {
         for url in urls {
-            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey]),
+            guard let values = try? url.resourceValues(forKeys: directoryListingKeySet),
                   values.isDirectory == true else {
                 continue
             }

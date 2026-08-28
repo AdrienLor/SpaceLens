@@ -1,5 +1,9 @@
 # Architecture
 
+Completed scanner trees are already ordered for the requested size metric. The
+browser stores them directly and only rebuilds their ordering when the user
+changes metrics, avoiding a full duplicate-tree allocation after every scan.
+
 The browser consumes throttled scanner progress events to present item and byte
 counts without increasing filesystem reporting frequency. User cancellation is
 cooperative and preserves already listed top-level results in the current view.

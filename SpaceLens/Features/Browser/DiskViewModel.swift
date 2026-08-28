@@ -117,7 +117,7 @@ final class DiskViewModel: ObservableObject {
                         }
                     case .discovered(let discoveredNode, let parent):
                         if parent == target {
-                            let node = sortedTree(discoveredNode)
+                            let node = discoveredNode
                             immediateChildren[node.url] = node
                             scanningNodeURLs.remove(node.url)
                             let sorted = sort(Array(immediateChildren.values))
@@ -127,7 +127,7 @@ final class DiskViewModel: ObservableObject {
                     case .progress(let statistics):
                         scanStatistics = statistics
                     case .completed(let scannedRoot):
-                        let root = sortedTree(scannedRoot)
+                        let root = scannedRoot
                         storeCachedRoot(root, for: target)
                         present(root, for: target)
                         if recordInHistory, viewStack.last != target {
