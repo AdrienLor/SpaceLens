@@ -141,6 +141,48 @@ final class DiskViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.cache[roots[3]])
     }
 
+    func testProgressStatisticsArePublishedForTheActiveScan() async {
+        let scanner = ControlledDiskScanner()
+        let viewModel = DiskViewModel(scanner: scanner)
+        let root = URL(fileURLWithPath: "/tmp/spacelens-statistics", isDirectory: true)
+        let current = root.appendingPathComponent("Library", isDirectory: true)
+
+        viewModel.openFolder(root)
+        await waitUntil { scanner.requestedRoots.contains(root) }
+        scanner.progress(
+            root: root,
+            statistics: ScanStatistics(
+                discoveredItemCount: 512,
+                logicalBytes: 8_192,
+                allocatedBytes: 4_096,
+                currentURL: current
+            )
+        )
+        await waitUntil { viewModel.scanStatistics?.discoveredItemCount == 512 }
+
+        XCTAssertEqual(viewModel.scanStatistics?.allocatedBytes, 4_096)
+        XCTAssertEqual(viewModel.scanStatistics?.currentURL, current)
+    }
+
+    func testUserCanCancelScanAndKeepProgressiveResultsVisible() async {
+        let scanner = ControlledDiskScanner()
+        let viewModel = DiskViewModel(scanner: scanner)
+        let root = URL(fileURLWithPath: "/tmp/spacelens-user-cancel", isDirectory: true)
+        let child = scannedFile(at: root.appendingPathComponent("visible.bin"), size: 1_024)
+
+        viewModel.openFolder(root)
+        await waitUntil { scanner.requestedRoots.contains(root) }
+        scanner.list(child, parent: root)
+        await waitUntil { viewModel.nodes.first == child }
+
+        viewModel.cancelScan()
+        await waitUntil { scanner.cancelledRoots.contains(root) }
+
+        XCTAssertFalse(viewModel.isScanning)
+        XCTAssertEqual(viewModel.nodes, [child])
+        XCTAssertTrue(viewModel.scanningNodeURLs.isEmpty)
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,
@@ -223,5 +265,10 @@ private final class ControlledDiskScanner: DiskScanning, @unchecked Sendable {
     func list(_ node: Node, parent: URL) {
         let continuation = lock.withLock { continuations[parent] }
         continuation?.yield(.listed(node, parent: parent))
+    }
+
+    func progress(root: URL, statistics: ScanStatistics) {
+        let continuation = lock.withLock { continuations[root] }
+        continuation?.yield(.progress(statistics))
     }
 }

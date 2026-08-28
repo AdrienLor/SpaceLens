@@ -15,6 +15,7 @@ final class DiskViewModel: ObservableObject {
     @Published var sunburstRoot: Node?
     @Published var isSunburstRefreshing = false
     @Published private(set) var scanningNodeURLs: Set<URL> = []
+    @Published private(set) var scanStatistics: ScanStatistics?
     @Published var heatmapStyle: HeatmapStyle = .fileType
     @Published private(set) var sizeMetric: FileSizeMetric = .allocated
 
@@ -70,6 +71,7 @@ final class DiskViewModel: ObservableObject {
         currentFolder = target
         breadcrumb = makeBreadcrumb(for: target)
         errorMessage = nil
+        scanStatistics = nil
 
         if let cachedRoot = scannedRoots[target] {
             touchCachedRoot(target)
@@ -122,8 +124,8 @@ final class DiskViewModel: ObservableObject {
                             cache[target] = sorted
                             nodes = Array(sorted.prefix(displayLimit))
                         }
-                    case .progress:
-                        break
+                    case .progress(let statistics):
+                        scanStatistics = statistics
                     case .completed(let scannedRoot):
                         let root = sortedTree(scannedRoot)
                         storeCachedRoot(root, for: target)
@@ -180,6 +182,14 @@ final class DiskViewModel: ObservableObject {
         openFolder(previous, recordInHistory: false)
     }
 
+    func cancelScan() {
+        guard isScanning else { return }
+        cancelCurrentScan()
+        isScanning = false
+        isSunburstRefreshing = false
+        scanningNodeURLs = []
+    }
+
     private func present(_ root: Node, for target: URL) {
         guard currentFolder == target else { return }
         let sorted = sort(root.children)
@@ -189,6 +199,7 @@ final class DiskViewModel: ObservableObject {
         isScanning = false
         isSunburstRefreshing = false
         scanningNodeURLs = []
+        scanStatistics = nil
         activeScanID = nil
         scanTask = nil
     }
@@ -197,6 +208,7 @@ final class DiskViewModel: ObservableObject {
         isScanning = false
         isSunburstRefreshing = false
         scanningNodeURLs = []
+        scanStatistics = nil
         activeScanID = nil
         scanTask = nil
         errorMessage = message(for: error)

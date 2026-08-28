@@ -33,6 +33,21 @@ struct ContentView: View {
         FileSizeMetric(rawValue: sizeMetricRaw) ?? .allocated
     }
 
+    private var scanStatusText: String {
+        guard let statistics = vm.scanStatistics else { return "Starting scan…" }
+        let bytes = sizeMetric == .allocated
+            ? statistics.allocatedBytes
+            : statistics.logicalBytes
+        let formattedBytes = ByteCountFormatter.string(
+            fromByteCount: bytes,
+            countStyle: .file
+        )
+        let location = statistics.currentURL?.lastPathComponent
+        let summary = "\(statistics.discoveredItemCount.formatted()) items • \(formattedBytes)"
+        guard let location, !location.isEmpty else { return summary }
+        return "\(summary) • \(location)"
+    }
+
     @AppStorage("heatmapStyle") private var heatmapStyleRaw: String = "fileType"
     private var heatmapStyle: HeatmapStyle {
         HeatmapStyle(rawValue: heatmapStyleRaw) ?? .warm
@@ -182,21 +197,28 @@ struct ContentView: View {
                         ProgressView()
                             .scaleEffect(0.6)
                             .controlSize(.regular)
-                        Text("Scan")
+                        Text(scanStatusText)
                             .font(.caption2)
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.red)
                             .cornerRadius(6)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("Cancel") {
+                            vm.cancelScan()
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
                     }
                     .padding(.bottom, 4)
-                    .frame(height: 12)
+                    .frame(height: 22)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 else {
                     Text("")
-                        .frame(height: 12)
+                        .frame(height: 22)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 

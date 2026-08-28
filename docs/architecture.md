@@ -1,5 +1,9 @@
 # Architecture
 
+The browser consumes throttled scanner progress events to present item and byte
+counts without increasing filesystem reporting frequency. User cancellation is
+cooperative and preserves already listed top-level results in the current view.
+
 SpaceLens is organized by responsibility while remaining a single macOS application target.
 
 ## Source layout

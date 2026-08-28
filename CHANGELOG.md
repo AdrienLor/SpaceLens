@@ -1,5 +1,7 @@
 # Changelog
 
+- Show live scan item/byte/location statistics and provide an explicit cancel action.
+
 All notable changes to SpaceLens will be documented in this file.
 
 The project follows the principles of [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
