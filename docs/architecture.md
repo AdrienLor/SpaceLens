@@ -2,7 +2,8 @@
 
 The sunburst Canvas redraws only when its data, geometry, metric, depth, or
 palette changes. File-type colors for folders reflect their largest descendant,
-and grouped small sectors remain hoverable with aggregate details.
+grouped small sectors remain hoverable with aggregate details, and the redundant
+full-circle root ring is omitted because the center already identifies the root.
 
 File resource identifiers deduplicate allocated bytes when multiple paths refer
 to the same inode. APFS clone candidates are annotated, but their allocated size

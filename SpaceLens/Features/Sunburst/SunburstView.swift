@@ -50,7 +50,7 @@ struct SunburstView: View {
                                         let center = CGPoint(x: chartWidth / 2, y: geo.size.height / 2)
                                         let centerHole = totalRadius * 0.2
 
-                                        drawLevel(nodes: [root],
+                                        drawLevel(nodes: root.children,
                                                   in: &context,
                                                   center: center,
                                                   innerRadius: centerHole,
@@ -61,12 +61,30 @@ struct SunburstView: View {
                                                   maxDepth: maxDepth,
                                                   sectorsOut: &builtSectors)
 
-                                        if case .node(let hovered) = hoveredPayload,
-                                           let hoveredPath = builtSectors.first(where: {
-                                               if case .node(let node) = $0.1 { return node.id == hovered.id }
-                                               return false
-                                           })?.0 {
-                                            context.stroke(hoveredPath, with: .color(.white), lineWidth: 2)
+                                        if case .node(let hovered) = hoveredPayload {
+                                            for (path, payload) in builtSectors {
+                                                guard case .node(let node) = payload else { continue }
+                                                if node.id == hovered.id {
+                                                    context.fill(path, with: .color(.white.opacity(0.14)))
+                                                    context.stroke(path, with: .color(.white), lineWidth: 2.5)
+                                                } else if isAncestor(node, of: hovered) {
+                                                    context.stroke(
+                                                        path,
+                                                        with: .color(.white.opacity(0.55)),
+                                                        lineWidth: 1.5
+                                                    )
+                                                }
+                                            }
+                                        } else if case .other(let hovered) = hoveredPayload,
+                                                  let hoveredPath = builtSectors.first(where: {
+                                                      if case .other(let summary) = $0.1 {
+                                                          return summary.itemCount == hovered.itemCount
+                                                              && summary.size == hovered.size
+                                                      }
+                                                      return false
+                                                  })?.0 {
+                                            context.fill(hoveredPath, with: .color(.white.opacity(0.14)))
+                                            context.stroke(hoveredPath, with: .color(.white), lineWidth: 2.5)
                                         }
 
                                         let configuration = "\(root.id.path)|\(maxDepth)|\(sizeMetric.rawValue)|\(heatmapStyle.rawValue)"
@@ -139,7 +157,10 @@ struct SunburstView: View {
                                 .background(Color.black.opacity(0.7))
                                 .foregroundColor(.white)
                                 .cornerRadius(6)
-                                .position(x: loc.x + 16, y: loc.y + 28)
+                                .position(
+                                    x: min(max(loc.x + 16, 110), chartWidth - 110),
+                                    y: min(max(loc.y + 28, 20), geo.size.height - 20)
+                                )
                                 .allowsHitTesting(false)
                         }
                         VStack {
@@ -379,6 +400,12 @@ struct SunburstView: View {
             $0.size(using: sizeMetric) < $1.size(using: sizeMetric)
         }) else { return nil }
         return dominantLeaf(in: largest)
+    }
+
+    private func isAncestor(_ candidate: Node, of node: Node) -> Bool {
+        let candidateComponents = candidate.url.standardizedFileURL.pathComponents
+        let nodeComponents = node.url.standardizedFileURL.pathComponents
+        return candidate.id != node.id && nodeComponents.starts(with: candidateComponents)
     }
 
     private func findNode(by id: Node.ID, in node: Node) -> Node? {

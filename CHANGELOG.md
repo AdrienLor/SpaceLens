@@ -1,6 +1,6 @@
 # Changelog
 
-- Improve sunburst heatmap clarity, inspectability, and idle rendering cost.
+- Improve sunburst heatmap clarity, hierarchy highlighting, inspectability, and idle rendering cost.
 - Count hard-linked file allocation once and identify possible APFS clone sharing in the list.
 - Avoid rebuilding and sorting the complete node tree a second time when a scan completes.
 - Reuse immutable filesystem resource-key sets across metadata reads.
